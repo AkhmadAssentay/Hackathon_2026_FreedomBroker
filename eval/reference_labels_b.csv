@@ -1,0 +1,21 @@
+conversation_id;language;channel;c01;c02;c03;c04;c05;c06;c07;c08;comment
+p1-ru-002;RU;agent chat;yes;yes;na;20;yes;10;yes;no;
+p1-ru-005;RU;agent chat;yes;na;na;10;yes;4;yes;no;комиссия брокера не раскрыта; клиент переспросил «В каком меню?»
+p1-ru-009;RU;agent chat;yes;yes;no;5;no;4;yes;yes;ограничение на счёте раскрыто без идентификации
+p1-ru-014;RU;agent chat;no;no;na;20;no;7;no;no;«Привет» без имени; переспросил уже известное
+p1-ru-018;RU;agent chat;yes;no;na;0;no;4;no;no;оператор закрыл чат без прощания
+p1-ru-022;RU;agent chat;yes;no;na;0;no;7;no;yes;предложил перевести деньги лично
+p1-ru-027;RU;agent chat;yes;na;na;20;yes;10;no;no;только «Хорошего вечера» без итога/помощи
+p1-kz-003;KZ;agent chat;yes;yes;yes;20;yes;10;yes;no;
+p1-kz-006;KZ;agent chat;yes;na;na;20;yes;10;no;no;спорно: «рада, что помогла» + прощание
+p1-kz-010;KZ;agent chat;yes;na;na;20;yes;10;no;no;только «Сау болыңыз»
+p1-kz-012;KZ;agent chat;yes;yes;na;20;yes;10;yes;no;
+p1-kz-015;KZ;agent chat;yes;na;no;5;no;7;yes;yes;ограничение раскрыто без идентификации
+p1-en-004;EN;agent chat;yes;na;na;20;yes;10;no;no;
+p1-en-008;EN;agent chat;yes;na;na;15;yes;10;no;no;вопрос про открытую позицию не закрыт
+p1-en-011;EN;agent chat;yes;na;na;20;yes;10;no;no;
+p1-en-013;EN;agent chat;yes;na;na;20;no;7;no;yes;платная частная консультация
+p1-en-014;EN;agent chat;yes;na;no;5;no;4;no;yes;ограничение раскрыто без идентификации
+p4-ru-002;RU;voice call;no;na;yes;15;yes;10;no;no;нет приветствия в первой реплике; консультация с коллегой во время удержания
+p4-ru-003;RU;voice call;yes;yes;yes;15;yes;7;na;no;клиент завершил звонок сам
+p4-ru-005;RU;voice call;no;yes;no;15;yes;4;yes;no;спорно c03: удаление счёта, проверены только телефон и имя

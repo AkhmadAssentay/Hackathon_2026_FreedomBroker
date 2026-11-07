@@ -196,6 +196,13 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
             except Exception as e:
                 for cid in foreign:
                     fresh[cid].setdefault("validator_notes", []).append(f"перевод не удался: {e}")
+        # cross-check: a gross-error signal found by code but rejected by the model goes to a human
+        gross_ids = [c["id"] for c in missing if c.get("gross")]
+        if fx.get("possible_gross_error_signals"):
+            for cid in gross_ids:
+                if fresh[cid].get("answer") != "yes":
+                    errs_by[cid].append("код нашёл возможный признак грубой ошибки ("
+                                        + "; ".join(fx["possible_gross_error_signals"]) + "), модель его не подтвердила")
         share = total_cost / max(1, len(missing))
         for c in missing:
             r = fresh[c["id"]]

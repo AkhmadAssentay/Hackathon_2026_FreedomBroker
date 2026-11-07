@@ -52,7 +52,7 @@ def evaluate_model(model: str, gold: dict, version: int) -> dict:
     gross_tp = gross_fp = gross_fn = 0
     mae, first_pass_valid, n_results, needs_review = [], 0, 0, 0
     for cid, labels, v in rows:
-        lang = cid.split("-")[1].upper()
+        lang = "CALL" if cid.startswith("p4") else cid.split("-")[1].upper()
         pred = {k: r["answer"] for k, r in v["results"].items()}
         for k, gl in labels.items():
             p = pred.get(k)
@@ -108,7 +108,7 @@ def evaluate_model(model: str, gold: dict, version: int) -> dict:
 
 def to_markdown(results: list[dict]) -> str:
     out = ["# Agreement with reference labels\n",
-           "Reference: `eval/gold_labels.json` (33 DEV chats × 8 criteria). Accuracy = exact match of the answer "
+           "Reference: `eval/gold_labels.json` (44 DEV dialogues × 8 criteria: 41 chats + 3 calls; two independent labelings agree 91.7% on their overlap). Accuracy = exact match of the answer "
            "(yes/no/N/A/scale step).\n"]
     for m in results:
         if not m.get("n_dialogues"):

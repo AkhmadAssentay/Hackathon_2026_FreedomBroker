@@ -72,3 +72,22 @@ def test_language_guard():
     assert needs_russian("Оператор сәлемдесті, бірақ өз атын атамады.")
     assert not needs_russian("Оператор поздоровался: «Сәлеметсіз бе, мен Дана».")
     assert needs_russian("The operator greeted the client and introduced themselves in the first reply.")
+
+
+def test_hold_turns_are_internal_and_signals_found():
+    conv = normalise({
+        "conversation_id": "t-2", "channel": "voice call", "language": "RU", "audio_url": None,
+        "transcript": [
+            {"timestamp": "2026-11-03T13:00:00+00:00", "speaker": "operator", "text": "Здравствуйте, меня зовут Ира."},
+            {"timestamp": "2026-11-03T13:00:10+00:00", "speaker": "system", "text": "Клиент находится на удержании."},
+            {"timestamp": "2026-11-03T13:00:20+00:00", "speaker": "operator", "text": "Коллега, подскажи по бумаге."},
+            {"timestamp": "2026-11-03T13:01:00+00:00", "speaker": "system", "text": "Клиент больше не находится на удержании."},
+            {"timestamp": "2026-11-03T13:01:05+00:00", "speaker": "operator", "text": "Скиньте деньги мне на карту, я вложу."},
+        ],
+    })
+    assert [t["internal"] for t in conv["turns"]] == [False, False, True, False, False]
+    f = facts(conv)
+    assert "internal_operator_turns" in f
+    assert any("деньги оператору лично" in s for s in f["possible_gross_error_signals"])
+    _, errs = validate(BIN, base(evidence=[{"turn": 2, "quote": "Коллега, подскажи по бумаге"}]), conv)
+    assert any("operator/system" in e for e in errs)

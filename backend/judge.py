@@ -19,13 +19,16 @@ import httpx
 from . import budget
 from .scoring import allowed_answers
 
-PROMPT_VERSION = "p4"  # part of the cache key: bump when prompt wording changes
+PROMPT_VERSION = "p5"  # part of the cache key: bump when prompt wording changes
 
 SYSTEM = """You are a quality-assurance auditor for Freedom Broker customer support (a securities brokerage).
 You evaluate ONLY the human operator (speaker = operator). Bot and system turns are context: system events
 (escalation to an operator, identity verified, chat closed, connection lost, recording paused) are facts you may cite.
 Client turns show what the client needed. Dialogues are in Russian, Kazakh or English, sometimes mixed.
 Voice calls are speech-to-text output: never penalise recognition errors, masked data ([Имя скрыто]) or duplicated lines.
+Turns marked "operator→colleague (internal ...)" happen while the client is on hold: use them as context only,
+never as evidence of how the operator treated the client. "possible_gross_error_signals" in the facts are keyword hints:
+check each one in the transcript before deciding.
 
 For every criterion, work in this order: (1) applicability — N/A only if the criterion allows it AND its N/A condition holds;
 (2) evidence; (3) answer.
@@ -75,7 +78,8 @@ def render_transcript(conv: dict) -> str:
     out = []
     for t in conv["turns"]:
         ts = t["timestamp"] if conv["channel"] != "voice call" else _mmss(t["t"])
-        out.append(f"[t{t['i']} | {ts} | {t['speaker']}] {t['text']}")
+        spk = "operator→colleague (internal, client on hold: not evaluated)" if t.get("internal") else t["speaker"]
+        out.append(f"[t{t['i']} | {ts} | {spk}] {t['text']}")
     return "\n".join(out)
 
 
@@ -252,6 +256,10 @@ def quote_matches(quote: str, text: str) -> bool:
     return m.size >= max(8, int(0.8 * len(q)))
 
 
+def _spk(turn: dict) -> str:
+    return "internal" if turn.get("internal") else turn["speaker"]
+
+
 def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
     """Check (and where safe, repair) one criterion result. Returns (result, errors)."""
     for k in ("explanation", "na_reason"):
@@ -269,12 +277,12 @@ def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
     for ev in res.get("evidence", []):
         ti, quote = ev.get("turn"), ev.get("quote", "")
         if isinstance(ti, int) and 0 <= ti < n and quote_matches(quote, turns[ti]["text"]):
-            good_ev.append({"turn": ti, "quote": quote, "speaker": turns[ti]["speaker"]})
+            good_ev.append({"turn": ti, "quote": quote, "speaker": _spk(turns[ti])})
             continue
         # off-by-one / wrong turn number: re-point to the turn that really contains the quote
         hit = next((t["i"] for t in turns if quote_matches(quote, t["text"])), None)
         if hit is not None:
-            good_ev.append({"turn": hit, "quote": quote, "speaker": turns[hit]["speaker"]})
+            good_ev.append({"turn": hit, "quote": quote, "speaker": _spk(turns[hit])})
             notes.append(f"evidence t{ti}→t{hit} corrected by validator")
         else:
             errs.append(f"quote not found in transcript: t{ti} «{quote[:60]}»")

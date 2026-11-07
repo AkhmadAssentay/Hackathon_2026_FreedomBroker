@@ -44,6 +44,26 @@ def fetch_group(group_id: str) -> list[dict]:
 # ---------------------------------------------------------------- normalisation
 
 _PAUSE = re.compile(r"(приостановлен|paused|тоқтатыл)", re.I)
+# Hold / consultation (ported from the Node prototype): while the client is on hold the
+# operator talks to a colleague; those turns are internal and are not evaluated.
+_HOLD_END = re.compile(r"больше не находится на удержании|снят с удержания|off hold|no longer on hold|ұстаудан шықты", re.I)
+_HOLD_START = re.compile(r"на удержании|on hold|ұстауда", re.I)
+_CONSULT_START = re.compile(r"началась консультация|консультация с агентом началась|consultation (has )?started", re.I)
+_CONSULT_END = re.compile(r"агент вышел из разговора|consultation (has )?ended", re.I)
+_OP_CLOSED = re.compile(r"оператор закрыл чат|agent closed the chat|оператор чатты жапты|оператор чатты аяқтады", re.I)
+_CLIENT_ENDED = re.compile(r"клиент завершил|клиент покинул|client (has )?(ended|left)|клиент чаттан шықты|клиент қоңырауды аяқтады|"
+                           r"соединение с клиентом прервано|клиентпен байланыс үзілді|connection to customer lost", re.I)
+_ID_OK = re.compile(r"личност\S*\s+(клиента\s+)?подтвержд|жеке\s+басы\s+расталды|identity\s+(has\s+been\s+|was\s+)?(verified|confirmed)|"
+                    r"идентификац\S*\s+(успешно\s+)?(пройден|подтвержд|выполнен)", re.I)
+# Phrases that suggest a gross error. A hint and cross-check for the model, never a verdict.
+_GROSS = [
+    (re.compile(r"(переведите|перевести|скиньте|отправьте|киньте).{0,40}(мне|на мою|лично|на мой)", re.I), "деньги оператору лично"),
+    (re.compile(r"(маған|менің карта).{0,30}(аударыңыз|жіберіңіз|салыңыз)", re.I), "деньги оператору лично"),
+    (re.compile(r"(transfer|send).{0,30}(to me|my (personal )?(card|account))", re.I), "деньги оператору лично"),
+    (re.compile(r"(личн\w* номер|whatsapp|телеграм|telegram|жеке нөмір|personal number).{0,80}(плат|частн|ақылы|charge|private)", re.I), "платная частная консультация"),
+    (re.compile(r"(плат|частн|ақылы|charge|private).{0,80}(личн\w* номер|жеке нөмір|personal number)", re.I), "платная частная консультация"),
+    (re.compile(r"(дурак|идиот|тупой|кретин|stupid|idiot|moron|ақымақ|читать (не )?умеете|совсем не понимаете)", re.I), "возможное оскорбление"),
+]
 _RESUME = re.compile(r"(возобновлен|resumed|жалғастырыл|қайта бастал)", re.I)
 
 
@@ -66,6 +86,7 @@ def normalise(rec: dict) -> dict:
     raw = [_parse_ts(t.get("timestamp", "")) for t in turns]
     t0 = next((x for x in raw if x is not None), 0.0)
     out, paused_total, pause_start = [], 0.0, None
+    hold = consult = False
     for i, t in enumerate(turns):
         sec = None if raw[i] is None else raw[i] - t0
         text = t.get("text", "") or ""
@@ -73,6 +94,15 @@ def normalise(rec: dict) -> dict:
         audio_sec = None
         if sec is not None:
             audio_sec = sec - paused_total - ((sec - pause_start) if pause_start is not None else 0.0)
+        if spk == "system":
+            if _HOLD_END.search(text):
+                hold = False
+            elif _HOLD_START.search(text):
+                hold = True
+            if _CONSULT_START.search(text):
+                consult = True
+            elif _CONSULT_END.search(text):
+                consult = False
         if spk == "system" and sec is not None:
             if _PAUSE.search(text) and pause_start is None:
                 pause_start = sec
@@ -84,6 +114,7 @@ def normalise(rec: dict) -> dict:
             "timestamp": t.get("timestamp", ""),
             "t": None if sec is None else round(sec, 2),
             "audio_t": None if audio_sec is None else round(max(audio_sec, 0.0), 2),
+            "internal": spk == "operator" and (hold or consult),
         })
     return {
         "conversation_id": rec["conversation_id"],
@@ -109,7 +140,7 @@ def _mmss(sec: float | None) -> str:
 def facts(conv: dict) -> dict[str, Any]:
     """Facts computed in code so the model never does timestamp arithmetic."""
     turns = conv["turns"]
-    op = [t for t in turns if t["speaker"] == "operator"]
+    op = [t for t in turns if t["speaker"] == "operator" and not t.get("internal")]
     f: dict[str, Any] = {
         "channel": conv["channel"], "language": conv["language"],
         "n_turns": len(turns), "operator_turns": [t["i"] for t in op],
@@ -137,6 +168,17 @@ def facts(conv: dict) -> dict[str, Any]:
             f["max_reply_delay_turns"] = [d[1], d[2]]
         f["last_operator_turn"] = op[-1]["i"]
     f["system_events"] = [f"t{t['i']}: {t['text']}" for t in turns if t["speaker"] == "system"]
+    internal = [t["i"] for t in turns if t.get("internal")]
+    if internal:
+        f["internal_operator_turns"] = f"t{internal[0]}–t{internal[-1]} ({len(internal)} turns): client on hold, operator talks to a colleague — context only, do not evaluate"
+    sys_t = [t for t in turns if t["speaker"] == "system"]
+    for key, rx in (("closed_by_operator_turn", _OP_CLOSED), ("ended_by_client_turn", _CLIENT_ENDED), ("identity_confirmed_turn", _ID_OK)):
+        hit = next((t["i"] for t in sys_t if rx.search(t["text"])), None)
+        if hit is not None:
+            f[key] = hit
+    sig = [f"t{t['i']}: {why}" for t in op for rx, why in _GROSS if rx.search(t["text"])]
+    if sig:
+        f["possible_gross_error_signals"] = sorted(set(sig))
     if turns:
         last = turns[-1]
         f["last_turn"] = f"t{last['i']} ({last['speaker']})"

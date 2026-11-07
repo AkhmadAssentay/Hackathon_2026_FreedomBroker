@@ -3,7 +3,7 @@
   const P = () => window.CQA.provider;
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = (x, d = 2) => (x === null || x === undefined ? "—" : Number(x).toFixed(d).replace(/\.00$/, ""));
-  const SPK = { client: "Клиент", operator: "Оператор", bot: "Бот", system: "Система" };
+  const SPK = { client: "Клиент", operator: "Оператор", bot: "Бот", system: "Система", internal: "Оператор ↔ коллега" };
   const store = { group: localGet("group") || "DEV", provider: localGet("provider") || "claude", health: null };
 
   function localGet(k) { try { return localStorage.getItem("cqa." + k); } catch { return null; } }
@@ -217,8 +217,9 @@
     }
     turnHtml(t, isCall) {
       const time = isCall ? (t.t != null ? new Date(t.t * 1000).toISOString().substr(14, 5) : "") : t.timestamp;
-      return `<div class="turn ${t.speaker}" id="turn-${t.i}" data-i="${t.i}">
-        <div class="tmeta"><a class="tid" href="#/conv/${encodeURIComponent(this.key)}/t${t.i}">t${t.i}</a> ${SPK[t.speaker] || esc(t.speaker)} · ${esc(time)}${isCall && t.audio_t != null ? ` <button class="seek" data-seek="${t.audio_t}" title="Слушать с этого места">▶</button>` : ""}</div>
+      const who = t.internal ? "Оператор ↔ коллега (клиент на удержании, не оценивается)" : (SPK[t.speaker] || esc(t.speaker));
+      return `<div class="turn ${t.speaker}${t.internal ? " internal" : ""}" id="turn-${t.i}" data-i="${t.i}">
+        <div class="tmeta"><a class="tid" href="#/conv/${encodeURIComponent(this.key)}/t${t.i}">t${t.i}</a> ${who} · ${esc(time)}${isCall && t.audio_t != null ? ` <button class="seek" data-seek="${t.audio_t}" title="Слушать с этого места">▶</button>` : ""}</div>
         <div class="ttext">${esc(t.text)}</div></div>`;
     }
     resultsHtml(ev) {
