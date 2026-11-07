@@ -35,7 +35,7 @@
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, retryAfter: data.retry_after || null });
     return data;
   }
   let toastTimer;
@@ -238,18 +238,31 @@
       };
       show();
       let next = 0;
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const worker = async () => {
         while (next < ids.length) {
           const id = ids[next++];
-          try {
-            const ev = await api('/evaluate', { method: 'POST', body: { conversation_id: id, group_id: job.group_id, checklist_uid: job.checklist_uid } });
-            if (ev.meta && ev.meta.cost_usd) cost += ev.meta.cost_usd;
-          } catch (e) { errors.push({ id, error: e.message }); }
+          // Hosted models have per-minute limits: on 429 (or a function timeout) wait and retry.
+          for (let attempt = 0; ; attempt++) {
+            try {
+              const ev = await api('/evaluate', { method: 'POST', body: { conversation_id: id, group_id: job.group_id, checklist_uid: job.checklist_uid } });
+              if (ev.meta && ev.meta.cost_usd) cost += ev.meta.cost_usd;
+              break;
+            } catch (e) {
+              const retryable = e.status === 429 || e.status === 503 || e.status === 504;
+              if (!retryable || attempt >= 6) { errors.push({ id, error: e.message }); break; }
+              const wait = Math.min(Math.max(e.retryAfter || 20, 5), 60);
+              const el = $('#job');
+              if (el) el.insertAdjacentHTML('beforeend', ` · <span class="muted">лимит модели, повтор через ${wait} с</span>`);
+              await sleep(wait * 1000);
+            }
+          }
           done++;
           show();
         }
       };
-      await Promise.all([worker(), worker()]);
+      // one request at a time online (rate-limited hosted model), two locally
+      await Promise.all(Array.from({ length: state.config && state.config.serverless ? 1 : 2 }, worker));
       toast(`Оценка завершена: ${done - errors.length} успешно${errors.length ? ', ошибок: ' + errors.length + ' (' + errors[0].error.slice(0, 80) + ')' : ''}`, errors.length > 0);
       router();
     }

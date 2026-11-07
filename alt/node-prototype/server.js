@@ -34,7 +34,7 @@ function ensureSeeded() {
   if (!seeded) {
     seeded = (async () => {
       if (!(await store.listChecklists()).length) {
-        await store.saveChecklist(JSON.parse(fs.readFileSync(path.join(__dirname, 'checklists', 'default.json'), 'utf8')));
+        await store.seedChecklist(JSON.parse(fs.readFileSync(path.join(__dirname, 'checklists', 'default.json'), 'utf8')));
       }
       const sampleFile = path.join(__dirname, 'samples', 'SAMPLE.json');
       if (!(await store.listDatasets()).length && fs.existsSync(sampleFile)) {
@@ -161,6 +161,8 @@ async function runEvaluation(record, groupId, checklist) {
       status: 'evaluated',
     });
   } catch (e) {
+    // A rate limit is not an evaluation result: report it so the caller can retry later.
+    if (e.status === 429) throw Object.assign(new Error('Лимит запросов модели исчерпан, повторите позже'), { status: 429, retryAfterSec: e.retryAfterSec || 20 });
     return await store.addEvaluation({
       conversation_id: record.conversation_id,
       group_id: groupId,
@@ -450,7 +452,7 @@ async function handler(req, res) {
       const out = await r.handler({ params, query: url.searchParams, body, req });
       return send(res, 200, out);
     } catch (e) {
-      return fail(res, e.status || 500, e.message || String(e));
+      return send(res, e.status || 500, { error: e.message || String(e), ...(e.retryAfterSec ? { retry_after: e.retryAfterSec } : {}) });
     }
   }
   fail(res, 404, 'Not found');

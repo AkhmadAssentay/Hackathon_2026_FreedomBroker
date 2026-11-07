@@ -10,15 +10,21 @@ const DEFAULT_MODELS = {
   gemini: 'gemini-2.5-flash',
 };
 
+// Known list prices, USD per 1M tokens [input, output] (Groq model page, Nov 2026).
+// PRICE_INPUT_PER_MTOK / PRICE_OUTPUT_PER_MTOK in .env override them.
+const DEFAULT_PRICES = {
+  'groq:openai/gpt-oss-120b': [0.15, 0.6],
+};
+
 function config() {
   const provider = (process.env.LLM_PROVIDER || autodetect()).toLowerCase();
   const model = process.env.LLM_MODEL || DEFAULT_MODELS[provider] || '';
+  const known = DEFAULT_PRICES[`${provider}:${model}`] || [0, 0];
   return {
     provider,
     model,
-    // Prices in USD per 1M tokens — set them in .env to get a per-evaluation cost estimate.
-    priceIn: Number(process.env.PRICE_INPUT_PER_MTOK || 0),
-    priceOut: Number(process.env.PRICE_OUTPUT_PER_MTOK || 0),
+    priceIn: Number(process.env.PRICE_INPUT_PER_MTOK || known[0]),
+    priceOut: Number(process.env.PRICE_OUTPUT_PER_MTOK || known[1]),
   };
 }
 
@@ -127,6 +133,10 @@ async function complete(prompt, { model } = {}) {
   const fn = { anthropic: callAnthropic, openai: callOpenAI, groq: callGroq, gemini: callGemini }[cfg.provider];
   if (!fn) throw new Error(`Неизвестный LLM_PROVIDER: ${cfg.provider}`);
   let lastErr;
+  // A serverless function has a hard time limit, so it must not sit out a long rate-limit wait:
+  // past this budget the 429 goes back to the caller, which retries later.
+  const started = Date.now();
+  const waitBudgetMs = Number(process.env.LLM_MAX_WAIT_SEC || (process.env.VERCEL ? 25 : 300)) * 1000;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const r = await fn(prompt, model || cfg.model);
@@ -140,6 +150,7 @@ async function complete(prompt, { model } = {}) {
       if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) break; // bad request / auth: retrying will not help
       // Rate limits (free Groq tier): wait as long as the API asks, capped.
       const waitMs = e.status === 429 ? Math.min((e.retryAfterSec || 10) * 1000, 60000) : 1500 * (attempt + 1);
+      if (e.status === 429 && Date.now() - started + waitMs > waitBudgetMs) break;
       await new Promise((res) => setTimeout(res, waitMs));
     }
   }

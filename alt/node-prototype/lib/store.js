@@ -211,6 +211,16 @@ async function saveChecklist(cl, { activate = true } = {}) {
   return rec;
 }
 
+// First-run seed: a fixed uid, so instances starting at the same time cannot create two versions.
+async function seedChecklist(cl) {
+  const version = cl.version || 1;
+  const rec = { ...cl, version, uid: `${cl.id}@v${version}`, saved_at: now() };
+  if (await B.getChecklist(rec.uid)) return rec;
+  try { await B.insertChecklist(rec, false); } catch (e) { if (e.code !== 11000) throw e; }
+  if (!(await B.getActiveUid())) await B.setActiveUid(rec.uid);
+  return rec;
+}
+
 async function setActive(uid) {
   if (!(await B.getChecklist(uid))) return false;
   await B.setActiveUid(uid);
@@ -244,6 +254,7 @@ module.exports = {
   getChecklist: (uid) => B.getChecklist(uid),
   activeChecklist,
   saveChecklist,
+  seedChecklist,
   setActive,
   addEvaluation,
   getEvaluation: (eid) => B.getEvaluation(eid),
