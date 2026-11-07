@@ -27,6 +27,9 @@ const ORG_API_URL =
 const CONCURRENCY = Number(process.env.EVAL_CONCURRENCY || 4);
 // On serverless hosting a request cannot keep working after its response, so batches run client-side.
 const SERVERLESS = !!process.env.VERCEL;
+// Call recordings are real customers' voices. On a public deployment they are not served (neither the
+// player stream nor the organizers' link) unless the team explicitly sets ALLOW_PUBLIC_AUDIO=1.
+const AUDIO_PUBLIC = !SERVERLESS || process.env.ALLOW_PUBLIC_AUDIO === '1';
 
 // Seed the default checklist and bundled sample data on first run (once per process).
 let seeded = null;
@@ -204,7 +207,7 @@ const route = (method, pattern, handler) => {
 
 route('GET', '/api/config', async () => {
   const c = llm.config();
-  return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: (await store.activeChecklist())?.uid, storage: store.backend, serverless: SERVERLESS };
+  return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: (await store.activeChecklist())?.uid, storage: store.backend, serverless: SERVERLESS, audio_enabled: AUDIO_PUBLIC };
 });
 
 // active (or requested) checklist
@@ -250,7 +253,8 @@ route('GET', '/api/conversations/:id', async ({ params, query }) => {
   const f = await store.findConversation(decodeURIComponent(params.id), query.get('group_id'));
   if (!f) throw Object.assign(new Error('Диалог не найден'), { status: 404 });
   const evals = (await store.listEvaluations({ conversation_id: f.record.conversation_id })).map((e) => ({ id: e.id, checklist_uid: e.checklist_uid, created_at: e.created_at, status: e.status, total: (e.final_result || e.result || {}).total ?? null }));
-  return { group_id: f.group_id, record: f.record, evaluations: evals };
+  const record = !AUDIO_PUBLIC && f.record.audio_url ? { ...f.record, audio_url: null, audio_withheld: true } : f.record;
+  return { group_id: f.group_id, record, evaluations: evals };
 });
 
 // checklists
@@ -411,6 +415,7 @@ async function resolveAudio(pageUrl, force = false) {
   return src;
 }
 async function serveAudio(req, res, url) {
+  if (!AUDIO_PUBLIC) return fail(res, 403, 'Записи звонков в публичной версии не публикуются');
   const f = await store.findConversation(url.searchParams.get('id') || '', url.searchParams.get('group_id'));
   if (!f || !f.record.audio_url) return fail(res, 404, 'У диалога нет записи');
   const headers = req.headers.range ? { range: req.headers.range } : {};

@@ -157,3 +157,7 @@ The same app runs fully online: the UI is served from `public/`, the API runs as
 Online, "Оценить все" runs from the browser (one dialog per request, two at a time): keep the tab open until it finishes. Loading a new `group_id`, uploading a JSON file, evaluating, re-evaluating, appeals and checklist edits all work online and are stored in MongoDB. If the API is unavailable (for example, the environment variables are missing), the site falls back to the read-only snapshot.
 
 Storage is chosen automatically: MongoDB when `MONGODB_URI` is set, otherwise JSON files in `data/`.
+
+Call recordings are real customers' voices, so the online version does not serve them (neither the player nor the organizers' link). Set `ALLOW_PUBLIC_AUDIO=1` on Vercel only if the team decides the recordings may be public. Locally the player works as usual.
+
+Groq's free tier allows about 8,000 tokens per request and per minute: one evaluation takes most of a minute's budget, so an online batch runs about one dialog per minute and retries automatically after rate-limit pauses.

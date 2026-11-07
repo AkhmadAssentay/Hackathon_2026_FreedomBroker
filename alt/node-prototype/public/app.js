@@ -12,10 +12,15 @@
   // snapshot of evaluated results (public/snapshot.json, made by scripts/export_snapshot.js).
   let SNAPSHOT = null;
   const modeReady = (async () => {
-    try {
-      const r = await fetch(API + '/config');
-      if (r.ok && (r.headers.get('content-type') || '').includes('json')) return;
-    } catch { /* no backend */ }
+    // A cold start can fail once: retry before falling back to the read-only snapshot.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(API + '/config');
+        if (r.ok && (r.headers.get('content-type') || '').includes('json')) return;
+        if (r.status === 404) break; // static hosting without an API
+      } catch { /* no backend */ }
+      await new Promise((res) => setTimeout(res, 1500));
+    }
     try {
       const r = await fetch('snapshot.json');
       if (r.ok) SNAPSHOT = await r.json();
@@ -327,7 +332,7 @@
       </div>
       <div class="card-grid">
         <section class="panel transcript" id="tr">
-          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : rec.audio_withheld ? '<span class="muted">Запись звонка в публичное демо не входит — она доступна при локальном запуске.</span>' : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
+          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : rec.audio_withheld ? '<span class="muted">Запись звонка в публичной версии не публикуется (реальный голос клиента) — она доступна при локальном запуске.</span>' : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
           ${msgs.map((m) => `
             <div class="msg ${esc(m.speaker)}" id="m-${m.idx}">
               <div class="n">${m.idx}</div>
