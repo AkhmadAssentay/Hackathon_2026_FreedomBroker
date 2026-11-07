@@ -166,7 +166,12 @@ def assign_providers(cl: dict, provider_name: str | None, model: str | None) -> 
 
 
 def evaluate(key: str, version: int | None = None, provider_name: str | None = None,
-             model: str | None = None, use_memory: bool = True) -> int:
+             model: str | None = None, use_memory: bool | None = None) -> int:
+    # Appeal decisions as prompt precedents are opt-in: on the reference set they did not improve
+    # held-out accuracy (eval/experiments.json -> _memory), so reviewers turn recurring decisions
+    # into explicit checklist guidelines instead.
+    if use_memory is None:
+        use_memory = os.environ.get("APPEAL_MEMORY", "0") == "1"
     conv = get_conv(key)
     cl = get_checklist(version)
     assign, eval_model = assign_providers(cl, provider_name, model)

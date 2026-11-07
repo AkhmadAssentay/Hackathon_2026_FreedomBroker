@@ -653,6 +653,8 @@
             <p class="muted small">Оценки сортируются по уверенности (доля совпавших голосов, самооценка модели). Проверяющий смотрит самые неуверенные — точность остальных растёт.</p></div>
           <div class="panel"><h3>Маршрутизатор: кто оценивает какой критерий</h3><div id="route"></div></div>
           <div class="panel span2"><h3>Точность по критериям (все 44 диалога)</h3><div id="heat"></div></div>
+          ${ex._memory ? `<div class="panel span2"><h3>Память апелляций: помогают ли прецеденты в промпте?</h3><div id="mem"></div>
+            <p class="muted small">9 ошибок маршрутизатора на половине «dev» превращены в решения проверяющего с причиной и добавлены в промпт; оценка на отложенных ${ex._memory.n_test_dialogues} диалогах. Не помогло — поэтому функция выключена по умолчанию, а повторяющиеся решения переносятся в пояснения критерия.</p></div>` : ""}
           <div class="panel span2"><h3>Таблица</h3><div class="tblwrap"><table class="tbl"><tr><th>Способ</th><th>dev</th><th>test</th><th>все</th><th>KZ</th><th>RU</th><th>EN</th><th>Звонки</th><th>ошибка итога</th><th>грубые (найдено/пропущено/ложно)</th><th>$ / диалог</th></tr>
           ${best.map((k) => { const a = ex[k].all, pl = a.per_language || {}, g = a.gross || {}; const p = (v) => (v == null ? "—" : Math.round(v * 1000) / 10 + "%");
             return `<tr><td>${esc(vname(k))}</td><td>${p(ex[k].dev.accuracy)}</td><td><b>${p(ex[k].test.accuracy)}</b></td><td>${p(a.accuracy)}</td><td>${p(pl.KZ)}</td><td>${p(pl.RU)}</td><td>${p(pl.EN)}</td><td>${p(pl.CALL)}</td><td>${fmt(a.total_mae)}</td><td>${g.tp || 0}/${g.fn || 0}/${g.fp || 0}</td><td>$${(a.usd_per_dialogue || 0).toFixed(4)}</td></tr>`; }).join("")}</table></div></div>
@@ -667,6 +669,14 @@
       const ch = (ex._router_choices || {})["app:claude-sonnet-5-5 + qwen_sc5"];
       if (ch) this.querySelector("#route").innerHTML = `<table class="tbl">${crits.map((c) => `<tr><td>${c.short} ${esc(c.title)}</td><td>${esc(vname(ch[c.id]))}</td></tr>`).join("")}</table>
         <p class="muted small">Выбор сделан на половине «dev»; новый или изменённый критерий оценивает Claude Sonnet 5.5.</p>`;
+      if (ex._memory) {
+        const m = ex._memory;
+        G.hbars(this.querySelector("#mem"), [
+          { label: "без прецедентов", value: 100 * m.without_memory.accuracy, color: G.C.s3 },
+          { label: "причины пишет модель", value: 100 * m.with_memory.accuracy, color: G.C.s2 },
+          ...(m.with_reviewer_memory ? [{ label: "причины пишет проверяющий", value: 100 * m.with_reviewer_memory.accuracy, color: G.C.s2 }] : []),
+        ], { unit: "%", labelWidth: 230 });
+      }
       G.heatmap(this.querySelector("#heat"), best.slice(0, 12).map((k) => ({ key: k, label: vname(k) })), crits, (r, c) => ex[r.key].all.per_criterion[c.id]);
     }
   }

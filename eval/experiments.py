@@ -96,6 +96,9 @@ VARIANTS: dict[str, dict] = {
     # appeals-as-memory: precedents from reviewer decisions on dev errors, evaluated on test only
     "qwen_sc5_mem":    {"provider": "local", "n": 5, "temperature": 0.7, "memory": True, "criteria": ["c4", "c5", "c6"], "partial": True},
     "sonnet_mem":      {"provider": "claude", "model": "claude-sonnet-5-5", "memory": True, "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
+    # same dev errors, but reasons written as a QA reviewer would (eval/memory_reviewer.json)
+    "qwen_sc5_memh":   {"provider": "local", "n": 5, "temperature": 0.7, "memory": "reviewer", "criteria": ["c4", "c5", "c6"], "partial": True},
+    "sonnet_memh":     {"provider": "claude", "model": "claude-sonnet-5-5", "memory": "reviewer", "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
 }
 
 MEMORY_PATH = RUNS / "memory.json"
@@ -193,7 +196,8 @@ def judge_one(cid: str, cfg: dict) -> dict:
     cl = checklist(set(cfg.get("sub", [])))
     if cfg.get("criteria"):
         cl["criteria"] = [c for c in cl["criteria"] if c["id"] in cfg["criteria"]]
-    prec = build_memory() if cfg.get("memory") else {}
+    prec = (json.loads((ROOT / "eval" / "memory_reviewer.json").read_text()) if cfg.get("memory") == "reviewer"
+            else build_memory() if cfg.get("memory") else {})
     crits = {c["id"]: c for c in cl["criteria"]}
     prov = provider_for(cfg)
     fx = facts(conv)
@@ -455,6 +459,12 @@ def report() -> dict:
         rows["_memory"] = {"n_test_dialogues": len(both),
                            "without_memory": metrics({c: base[c] for c in both}, "test"),
                            "with_memory": metrics(merged, "test")}
+        sh, qh = load("sonnet_memh"), load("qwen_sc5_memh")
+        if sh and qh:
+            bh = sorted(set(sh) & set(qh) & set(both))
+            mh = {cid: {"cid": cid, "cost_usd": sh[cid].get("cost_usd", 0),
+                        "results": {**sh[cid]["results"], **qh[cid]["results"]}} for cid in bh}
+            rows["_memory"]["with_reviewer_memory"] = metrics(mh, "test")
     rows["_router_choices"] = ROUTER_CHOICES
     prod = ROUTER_CHOICES.get(" + ".join(["app:claude-sonnet-5-5", "qwen_sc5"])) or next(iter(ROUTER_CHOICES.values()), None)
     if prod:
