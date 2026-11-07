@@ -48,6 +48,9 @@ test('client left early only when the client ended right after their own message
   assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'yes');
   x = dlg([['client', 'Понял'], ['operator', 'До свидания!'], ['system', 'Клиент завершил разговор.']]);
   assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'no');
+  // the line dropped right after the operator's greeting: the operator could not close the chat
+  x = dlg([['client', 'Hi'], ['operator', 'Hello! How can I help you today?'], ['system', 'Connection to customer lost.']]);
+  assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'yes');
 });
 
 test('rules turn sub-answers into the criterion answer', () => {

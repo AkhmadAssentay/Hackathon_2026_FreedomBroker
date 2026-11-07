@@ -87,14 +87,13 @@ const DETECTORS = {
     const hit = ops.reverse().find((m) => BYE.test(m.text));
     return { answer: hit ? 'yes' : 'no', msg: hit ? hit.idx : ops.length ? ops[0].idx : null };
   },
-  // the client ended the conversation (or the line dropped) right after their own message,
-  // before the operator could close it, and the operator had not said goodbye yet
+  // the client ended the conversation (or the line dropped) before the operator closed it:
+  // the operator had not said goodbye by then, so closing could not be evaluated (N/A, not "no")
   client_left_early(msgs, d) {
     if (d.ended_by_client_idx === null) return { answer: 'no', msg: null };
-    const before = msgs.slice(0, d.ended_by_client_idx).filter((m) => m.speaker === 'client' || (m.speaker === 'operator' && !d.internal_idx.includes(m.idx)));
-    const last = before[before.length - 1];
-    const opSaidBye = DETECTORS.operator_goodbye(msgs, d).answer === 'yes';
-    return { answer: last && last.speaker === 'client' && !opSaidBye ? 'yes' : 'no', msg: d.ended_by_client_idx };
+    const before = msgs.slice(0, d.ended_by_client_idx);
+    const opSaidBye = DETECTORS.operator_goodbye(before, { ...d, internal_idx: d.internal_idx }).answer === 'yes';
+    return { answer: opSaidBye ? 'no' : 'yes', msg: d.ended_by_client_idx };
   },
 };
 
