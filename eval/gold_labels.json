@@ -1,0 +1,435 @@
+{
+ "about": "Reference labels for 33 DEV chats (14 RU, 9 KZ, 10 EN; all 8 criteria), written by Claude Code (Claude Opus 5.5) reading each transcript against the literal checklist rules, independently of the runtime judge prompts. Borderline readings: closing (c7) requires (summary OR offer of help) AND goodbye; c2 is N/A when no clarification was needed; c3 is N/A when no account data was disclosed. Spot-check by the team recommended.",
+ "checklist_version": 1,
+ "labels": {
+  "p1-ru-001": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-002": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": "c3: client declined ID, nothing disclosed"
+  },
+  "p1-ru-003": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "na",
+    "c4": "10",
+    "c5": "yes",
+    "c6": "4",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": "commission question never answered"
+  },
+  "p1-ru-004": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-005": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "4",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": "vague answer -> client re-asks"
+  },
+  "p1-ru-006": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "yes",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-007": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "10",
+    "c5": "yes",
+    "c6": "7",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": "retry-withdrawal question ignored"
+  },
+  "p1-ru-008": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-009": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "no",
+    "c4": "5",
+    "c5": "no",
+    "c6": "4",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": "account data disclosed without ID"
+  },
+  "p1-ru-010": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "yes",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-011": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-ru-012": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "na",
+    "c8": "no"
+   },
+   "note": "connection lost"
+  },
+  "p1-ru-022": {
+   "labels": {
+    "c1": "yes",
+    "c2": "no",
+    "c3": "na",
+    "c4": "0",
+    "c5": "no",
+    "c6": "10",
+    "c7": "no",
+    "c8": "yes"
+   },
+   "note": "money to personal card"
+  },
+  "p1-ru-023": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "yes"
+   },
+   "note": "private paid consultation"
+  },
+  "p1-kz-001": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-002": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-003": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "yes",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-004": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-005": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "4",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": "wrong first path, no goodbye"
+  },
+  "p1-kz-006": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-007": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-kz-008": {
+   "labels": {
+    "c1": "no",
+    "c2": "no",
+    "c3": "na",
+    "c4": "20",
+    "c5": "no",
+    "c6": "7",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": "no name; re-asked known site"
+  },
+  "p1-kz-013": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "yes"
+   },
+   "note": "private paid consultation"
+  },
+  "p1-en-001": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-002": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-003": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-004": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-005": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-006": {
+   "labels": {
+    "c1": "yes",
+    "c2": "yes",
+    "c3": "yes",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "yes",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-007": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "10",
+    "c5": "yes",
+    "c6": "7",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": "retry question ignored"
+  },
+  "p1-en-008": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "15",
+    "c5": "yes",
+    "c6": "7",
+    "c7": "no",
+    "c8": "no"
+   },
+   "note": ""
+  },
+  "p1-en-009": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "na",
+    "c8": "no"
+   },
+   "note": "connection lost"
+  },
+  "p1-en-013": {
+   "labels": {
+    "c1": "yes",
+    "c2": "na",
+    "c3": "na",
+    "c4": "20",
+    "c5": "yes",
+    "c6": "10",
+    "c7": "no",
+    "c8": "yes"
+   },
+   "note": "private paid consultation"
+  }
+ }
+}

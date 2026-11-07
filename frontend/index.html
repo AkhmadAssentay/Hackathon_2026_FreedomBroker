@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CQA — оценка качества диалогов</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!--
+    The whole UI is a set of framework-free Web Components that talk to data only through
+    window.CQA.provider (see data-provider.js). To embed in Dynamics 365 as an HTML web
+    resource, keep the components and swap RestDataProvider for a Dataverse/Xrm.WebApi one.
+  -->
+  <cqa-app></cqa-app>
+  <script src="data-provider.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

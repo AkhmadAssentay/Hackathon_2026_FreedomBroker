@@ -1,0 +1,14 @@
+# secrets
+.env
+.secrets/
+# runtime data: organizer datasets, call recordings, database (real customer data — never commit)
+data/
+*.mp3
+*.db
+*.sqlite
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
