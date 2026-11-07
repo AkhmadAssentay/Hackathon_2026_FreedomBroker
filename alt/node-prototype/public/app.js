@@ -80,7 +80,7 @@
           <span class="chip-dark" title="Модель оценки">${c.provider === 'rules' ? 'Эвристика (без LLM)' : esc(c.provider + ' · ' + c.model)}</span>
         </div>
       </header>
-      ${SNAPSHOT ? `<div class="demo-banner">Демо-версия только для просмотра: сохранённые результаты оценки ${c.snapshot ? c.snapshot.conversations : ''} чатов набора ${esc(c.snapshot ? c.snapshot.group_id : '')} (модель ${esc(c.model || '')}, чек-лист ${esc(c.active_checklist || '')}, ${c.snapshot ? new Date(c.snapshot.created_at).toLocaleDateString('ru-RU') : ''}). Записи звонков в демо не публикуются. Оценка, апелляции и изменение чек-листа работают при локальном запуске.</div>` : ''}
+      ${SNAPSHOT ? `<div class="demo-banner">Демо-версия только для просмотра: сохранённые результаты оценки ${c.snapshot ? c.snapshot.conversations : ''} ${c.snapshot && c.snapshot.calls_included ? 'диалогов (чаты и звонки)' : 'чатов'} набора ${esc(c.snapshot ? c.snapshot.group_id : '')} (модель ${esc(c.model || '')}, чек-лист ${esc(c.active_checklist || '')}, ${c.snapshot ? new Date(c.snapshot.created_at).toLocaleDateString('ru-RU') : ''}). Записи звонков в демо не публикуются. Оценка, апелляции и изменение чек-листа работают при локальном запуске.</div>` : ''}
       <main>${inner}</main>`;
   }
 
@@ -283,7 +283,7 @@
       </div>
       <div class="card-grid">
         <section class="panel transcript" id="tr">
-          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
+          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : rec.audio_withheld ? '<span class="muted">Запись звонка в публичное демо не входит — она доступна при локальном запуске.</span>' : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
           ${msgs.map((m) => `
             <div class="msg ${esc(m.speaker)}" id="m-${m.idx}">
               <div class="n">${m.idx}</div>
