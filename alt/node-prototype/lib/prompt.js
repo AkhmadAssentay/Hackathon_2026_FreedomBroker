@@ -2,13 +2,20 @@
 // Builds the evaluation prompt from the checklist CONFIG, so any edited / new criterion
 // is applied without code changes.
 const { fmtSec } = require('./transcript');
-const { usesChecks, modelChecks } = require('./checks');
+const { usesChecks, modelChecks, codeOnly } = require('./checks');
 
 const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'английский' };
 
 function describeCriterion(c) {
   const lines = [];
   lines.push(`### ${c.id} — ${c.code ? c.code + '. ' : ''}${c.name}`);
+  // Criteria decided by sub-questions: the model needs only the sub-questions (the verdict, N/A and
+  // the rule are applied in code), which keeps the prompt short for rate-limited hosted models.
+  if (usesChecks(c)) {
+    lines.push('Подвопросы (ответь на КАЖДЫЙ "yes" или "no" и укажи номер реплики-основания msg или null; итог по критерию вычислит система, поле answer не нужно):');
+    for (const q of modelChecks(c)) lines.push(`  - ${q.id}: ${q.q}`);
+    return lines.join('\n');
+  }
   if (c.type === 'binary') lines.push(`Тип: ДА/НЕТ${c.na_allowed ? '/N/A' : ''}. Поле answer: "yes" | "no"${c.na_allowed ? ' | "na"' : ''}.`);
   if (c.type === 'flag') lines.push('Тип: флаг грубого нарушения (без баллов). Поле answer: "yes" (нарушение есть) | "no".');
   if (c.type === 'scale') {
@@ -18,15 +25,6 @@ function describeCriterion(c) {
     for (const s of [...c.scale].sort((a, b) => b.value - a.value)) lines.push(`  ${s.value} — ${s.label}`);
   }
   if (c.description) lines.push(`Правило: ${c.description}`);
-  if (usesChecks(c)) {
-    const mq = modelChecks(c);
-    if (mq.length) {
-      lines.push('Подвопросы (ответь на КАЖДЫЙ "yes" или "no" и укажи номер реплики-основания msg или null; итог по критерию вычислит система, поле answer не нужно):');
-      for (const q of mq) lines.push(`  - ${q.id}: ${q.q}`);
-    }
-    const auto = c.checks.filter((q) => q.detector);
-    if (auto.length) lines.push(`Система сама проверит: ${auto.map((q) => q.label || q.id).join('; ')}. Дай только объяснение.`);
-  }
   if (c.na_allowed) lines.push(`N/A допустим ТОЛЬКО если: ${c.na_condition || '(условие не задано — используйте N/A только если критерий объективно неприменим)'}`);
   else lines.push('N/A для этого критерия НЕ допускается.');
   return lines.join('\n');
@@ -56,7 +54,7 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     'Заполни запись для КАЖДОГО критерия из чек-листа.',
   ].join('\n');
 
-  const crit = checklist.criteria.map(describeCriterion).join('\n\n');
+  const crit = checklist.criteria.filter((c) => !codeOnly(c)).map(describeCriterion).join('\n\n');
 
   const internal = new Set((facts.dialog && facts.dialog.internal_idx) || []);
   // Keep the prompt compact (hosted models have per-request token limits): calls show the offset from
@@ -124,6 +122,7 @@ function answerEnum(c) {
 function buildSchema(checklist) {
   const props = {};
   for (const c of checklist.criteria) {
+    if (codeOnly(c)) continue; // answered entirely by code, not asked of the model
     if (usesChecks(c)) {
       const cp = {};
       for (const q of modelChecks(c)) cp[q.id] = { type: 'object', properties: { answer: { type: 'string', enum: ['yes', 'no'] }, msg: { anyOf: [{ type: 'integer' }, { type: 'null' }] } }, required: ['answer', 'msg'], additionalProperties: false };

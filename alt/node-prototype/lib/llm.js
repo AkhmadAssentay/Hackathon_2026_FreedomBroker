@@ -20,7 +20,7 @@ const DEFAULT_PRICES = {
 // Fallback models: each hosted model has its own rate-limit quota, so when one runs out (tokens per
 // day / per minute, or a request is too large for it) the next one takes over. LLM_FALLBACK_MODELS
 // overrides the list (comma-separated; empty string disables fallback).
-const DEFAULT_FALLBACKS = { groq: ['openai/gpt-oss-20b'] };
+const DEFAULT_FALLBACKS = { groq: ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b'] };
 function fallbackModels(provider, primary) {
   const env = process.env.LLM_FALLBACK_MODELS;
   const list = env !== undefined ? env.split(',').map((x) => x.trim()).filter(Boolean) : DEFAULT_FALLBACKS[provider] || [];
@@ -93,10 +93,13 @@ async function chatCompletions(base, key, { system, user, schema }, model) {
   // gpt-oss models "think" before answering and those tokens count toward rate limits. The task is
   // already split into narrow questions, so low reasoning effort keeps quality and saves most of them.
   const effort = /gpt-oss/.test(model) ? process.env.LLM_REASONING_EFFORT || 'low' : null;
+  // Qwen 3.x thinks in <think> blocks: keep them out of the answer (and out of the JSON).
+  const hideReasoning = /qwen3/i.test(model);
   const body = (format) => ({
     model,
     temperature: 0,
     ...(effort ? { reasoning_effort: effort } : {}),
+    ...(hideReasoning ? { reasoning_format: 'hidden' } : {}),
     response_format: format,
     messages: [
       { role: 'system', content: system },

@@ -1,6 +1,6 @@
 'use strict';
 const { indexTranscript, timingFacts, dialogFacts, normText } = require('./transcript');
-const { usesChecks, applyLogic, DETECTORS } = require('./checks');
+const { usesChecks, applyLogic, DETECTORS, codeOnly } = require('./checks');
 const { buildPrompt } = require('./prompt');
 const llm = require('./llm');
 const { score } = require('./scoring');
@@ -98,6 +98,7 @@ function toVerdicts(json, checklist, msgs, facts) {
     const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.entries(raw).map(([id, v]) => ({ ...v, id })) : [];
     for (const item of list) if (item && item.id) verdicts[item.id] = item;
     for (const c of checklist.criteria) {
+      if (!verdicts[c.id] && codeOnly(c)) verdicts[c.id] = { explanation: '', evidence: [] }; // decided by code below
       if (!verdicts[c.id]) verdicts[c.id] = { answer: null, explanation: 'Модель не вернула оценку по критерию.', warnings: ['Нет ответа модели'] };
       const v = verdicts[c.id];
       if (usesChecks(c)) {

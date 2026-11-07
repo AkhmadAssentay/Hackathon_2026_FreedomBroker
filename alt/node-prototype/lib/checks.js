@@ -99,5 +99,7 @@ const DETECTORS = {
 };
 
 const modelChecks = (c) => (usesChecks(c) ? c.checks.filter((q) => !q.detector) : []);
+// Every sub-question is answered by code: the model does not need to see this criterion at all.
+const codeOnly = (c) => usesChecks(c) && modelChecks(c).length === 0;
 
-module.exports = { signature, usesChecks, applyLogic, DETECTORS, modelChecks, clientLang };
+module.exports = { signature, usesChecks, applyLogic, DETECTORS, modelChecks, codeOnly, clientLang };

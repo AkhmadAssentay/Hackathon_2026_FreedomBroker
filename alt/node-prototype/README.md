@@ -160,4 +160,10 @@ Storage is chosen automatically: MongoDB when `MONGODB_URI` is set, otherwise JS
 
 Call recordings are real customers' voices, so the online version does not serve them (neither the player nor the organizers' link). Set `ALLOW_PUBLIC_AUDIO=1` on Vercel only if the team decides the recordings may be public. Locally the player works as usual.
 
-Groq's free tier allows about 8,000 tokens per request and per minute: one evaluation takes most of a minute's budget, so an online batch runs about one dialog per minute and retries automatically after rate-limit pauses.
+Groq's free tier allows each model about 8,000 tokens per minute and 200,000 per day. To stretch that:
+- gpt-oss models run with low reasoning effort (`LLM_REASONING_EFFORT`), since hidden reasoning tokens count toward the limits;
+- the prompt carries only what the model must decide: criteria answered entirely by code are not sent, and criteria with sub-questions send only the sub-questions;
+- when a model runs out (per day, per minute, or a request too large for it), evaluation moves to the next model with its own quota: `openai/gpt-oss-120b` → `openai/gpt-oss-20b` → `qwen/qwen3.8-27b` (`LLM_FALLBACK_MODELS`). The card shows which model scored the dialog;
+- when every model is busy, the API answers 429 with a retry time and the reasons per model; the online batch waits and retries.
+
+`GET /api/llm/models` lists the models the deployment's key can use. For full runs of 65+ dialogs in one go, Groq's paid Developer tier (pay per token, ~$0.002 per evaluation here) removes the free-tier ceiling.
