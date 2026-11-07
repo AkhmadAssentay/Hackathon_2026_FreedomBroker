@@ -51,7 +51,10 @@ function timingFacts(msgs, thresholdSec = 180) {
   const firstOp = msgs.find((m) => m.speaker === 'operator');
   if (firstOp) facts.first_operator_idx = firstOp.idx;
   if (firstClient && firstOp && firstClient.offset_sec !== null && firstOp.offset_sec !== null && firstOp.idx > firstClient.idx) {
-    facts.first_response_sec = firstOp.offset_sec - firstClient.offset_sec;
+    // Measured from the handover to the operator (the last system event before the operator's first line,
+    // e.g. «Эскалация на оператора»): time spent talking to the bot is not the operator's reaction time.
+    const handover = msgs.slice(firstClient.idx, firstOp.idx).reverse().find((m) => m.speaker === 'system' && m.offset_sec !== null);
+    facts.first_response_sec = firstOp.offset_sec - (handover ? handover.offset_sec : firstClient.offset_sec);
   }
   // Gaps where a client message waits for the next operator message longer than the threshold.
   for (let i = 0; i < msgs.length; i++) {

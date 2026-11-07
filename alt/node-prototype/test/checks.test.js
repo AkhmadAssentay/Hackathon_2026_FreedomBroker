@@ -87,3 +87,14 @@ test('a clarifying question is not «чем могу помочь?» or «ост
   x = dlg([['client', 'Не работает вывод'], ['operator', 'Какое сообщение вы видите в приложении?']]);
   assert.equal(DETECTORS.operator_clarifying_question(x.msgs, x.d).answer, 'yes');
 });
+
+test('first reaction is measured from the handover to the operator, not from the first message to the bot', () => {
+  const { timingFacts } = require('../lib/transcript');
+  const msgs = indexTranscript({ transcript: [
+    { timestamp: '00:00', speaker: 'client', text: 'Где отчёт?' },
+    { timestamp: '00:05', speaker: 'bot', text: 'Здравствуйте!' },
+    { timestamp: '01:16', speaker: 'system', text: 'Эскалация на оператора.' },
+    { timestamp: '03:28', speaker: 'operator', text: 'Здравствуйте, меня зовут Ая.' },
+  ] });
+  assert.equal(timingFacts(msgs, 180).first_response_sec, 132);
+});
