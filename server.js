@@ -1,0 +1,394 @@
+'use strict';
+// CQA — Conversation Quality Analytics prototype. Zero npm dependencies (Node 18+).
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// ---- minimal .env loader ----
+const envFile = path.join(__dirname, '.env');
+if (fs.existsSync(envFile)) {
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !line.trim().startsWith('#') && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+}
+
+const store = require('./lib/store');
+const { evaluate } = require('./lib/evaluator');
+const { score } = require('./lib/scoring');
+const llm = require('./lib/llm');
+
+const PORT = Number(process.env.PORT || 3000);
+const ORG_API_URL =
+  process.env.ORG_API_URL ||
+  'https://ec88f21f1accecf38e20095a9fe175.a5.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/b3d2a68006a24662be2b721454cb4e00/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=5Sog2MThgCRTlk3HObv70LRmRk6u7IOwzlwMpe804qo';
+const CONCURRENCY = Number(process.env.EVAL_CONCURRENCY || 4);
+
+// Seed default checklist on first run.
+if (!store.listChecklists().length) {
+  store.saveChecklist(JSON.parse(fs.readFileSync(path.join(__dirname, 'checklists', 'default.json'), 'utf8')));
+}
+// Seed bundled sample data if present and nothing loaded yet.
+const sampleFile = path.join(__dirname, 'samples', 'SAMPLE.json');
+if (!store.listDatasets().length && fs.existsSync(sampleFile)) {
+  const s = JSON.parse(fs.readFileSync(sampleFile, 'utf8'));
+  store.saveDataset('SAMPLE', s.data.records);
+}
+
+// ---------------- helpers ----------------
+function send(res, status, body, headers = {}) {
+  const isStr = typeof body === 'string' || Buffer.isBuffer(body);
+  res.writeHead(status, {
+    'content-type': isStr ? headers['content-type'] || 'text/plain; charset=utf-8' : 'application/json; charset=utf-8',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    ...headers,
+  });
+  res.end(isStr ? body : JSON.stringify(body));
+}
+const fail = (res, status, msg) => send(res, status, { error: msg });
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > 50 * 1024 * 1024) reject(new Error('Body too large'));
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8');
+      if (!raw) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new Error('Invalid JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function validateChecklist(cl) {
+  const errs = [];
+  if (!cl || typeof cl !== 'object') return ['Пустой чек-лист'];
+  if (!cl.id) errs.push('Нужен id чек-листа');
+  if (!cl.name) errs.push('Нужно название');
+  if (!Array.isArray(cl.criteria) || !cl.criteria.length) errs.push('Нужен хотя бы один критерий');
+  const ids = new Set();
+  for (const c of cl.criteria || []) {
+    if (!c.id) errs.push('У критерия нет id');
+    if (ids.has(c.id)) errs.push(`Повторяющийся id критерия: ${c.id}`);
+    ids.add(c.id);
+    if (!c.name) errs.push(`Критерий ${c.id}: нет названия`);
+    if (!['binary', 'scale', 'flag'].includes(c.type)) errs.push(`Критерий ${c.id}: неизвестный тип ${c.type}`);
+    if (c.type !== 'flag' && !(Number(c.weight) >= 0)) errs.push(`Критерий ${c.id}: некорректный вес`);
+    if (c.type === 'scale' && (!Array.isArray(c.scale) || c.scale.length < 2)) errs.push(`Критерий ${c.id}: у шкалы должно быть ≥ 2 ступеней`);
+    if (c.type === 'scale' && c.scale && c.scale.some((s) => Number.isNaN(Number(s.value)))) errs.push(`Критерий ${c.id}: ступени шкалы должны быть числами`);
+  }
+  return errs;
+}
+
+// Strip a raw organizer API response down to records.
+function extractRecords(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && payload.data && Array.isArray(payload.data.records)) return payload.data.records;
+  if (payload && Array.isArray(payload.records)) return payload.records;
+  throw new Error('Не найден массив records в ответе');
+}
+
+function summarize(rec, checklistUid) {
+  const ev = store.latestEvaluation(rec.conversation_id, checklistUid);
+  const fin = ev ? ev.final_result || ev.result : null;
+  return {
+    conversation_id: rec.conversation_id,
+    channel: rec.channel,
+    language: rec.language,
+    messages: (rec.transcript || []).length,
+    has_audio: !!rec.audio_url,
+    evaluation_id: ev ? ev.id : null,
+    total: fin ? fin.total : null,
+    gross_error: fin ? fin.gross_error : false,
+    status: ev ? ev.status || 'evaluated' : 'not_evaluated',
+    open_appeals: ev ? store.listAppeals({ evaluation_id: ev.id, status: 'open' }).length : 0,
+    error: ev ? ev.error || null : null,
+  };
+}
+
+// Rebuild verdicts from an evaluation (original result + reviewer overrides) and re-score.
+function recompute(ev) {
+  const verdicts = {};
+  for (const r of ev.result.criteria) {
+    verdicts[r.criterion_id] = { answer: r.answer, explanation: r.explanation, evidence: r.evidence, checked_range: r.checked_range, warnings: r.warnings };
+  }
+  for (const [cid, o] of Object.entries(ev.overrides || {})) {
+    if (!verdicts[cid]) continue;
+    verdicts[cid] = { ...verdicts[cid], answer: o.answer, overridden: true };
+  }
+  return score(ev.checklist, verdicts);
+}
+
+async function runEvaluation(record, groupId, checklist) {
+  try {
+    const out = await evaluate(record, checklist);
+    return store.addEvaluation({
+      conversation_id: record.conversation_id,
+      group_id: groupId,
+      checklist_uid: checklist.uid,
+      checklist,
+      result: out.result,
+      final_result: out.result,
+      overrides: {},
+      facts: out.facts,
+      meta: out.meta,
+      status: 'evaluated',
+    });
+  } catch (e) {
+    return store.addEvaluation({
+      conversation_id: record.conversation_id,
+      group_id: groupId,
+      checklist_uid: checklist.uid,
+      checklist,
+      result: null,
+      final_result: null,
+      status: 'error',
+      error: String(e.message || e),
+    });
+  }
+}
+
+// ---------------- batch jobs ----------------
+const jobs = new Map();
+async function runBatch(job, records, groupId, checklist) {
+  let i = 0;
+  async function worker() {
+    while (i < records.length && !job.cancelled) {
+      const rec = records[i++];
+      const ev = await runEvaluation(rec, groupId, checklist);
+      job.done++;
+      if (ev.status === 'error') job.errors.push({ conversation_id: rec.conversation_id, error: ev.error });
+      if (ev.meta && ev.meta.cost_usd) job.cost_usd += ev.meta.cost_usd;
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, records.length || 1) }, worker));
+  job.status = job.cancelled ? 'cancelled' : 'done';
+  job.finished_at = new Date().toISOString();
+}
+
+// ---------------- routes ----------------
+const routes = [];
+const route = (method, pattern, handler) => {
+  const keys = [];
+  const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)')) + '$');
+  routes.push({ method, re, keys, handler });
+};
+
+route('GET', '/api/config', () => {
+  const c = llm.config();
+  return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: store.activeChecklist()?.uid };
+});
+
+// datasets
+route('GET', '/api/datasets', () => store.listDatasets());
+route('POST', '/api/datasets/fetch', async ({ body }) => {
+  const g = String(body.group_id || 'DEV').trim();
+  const url = ORG_API_URL + (ORG_API_URL.includes('?') ? '&' : '?') + 'group_id=' + encodeURIComponent(g);
+  const r = await fetch(url);
+  const txt = await r.text();
+  if (!r.ok) throw Object.assign(new Error(`API организаторов: HTTP ${r.status} ${txt.slice(0, 200)}`), { status: 502 });
+  const payload = JSON.parse(txt);
+  if (payload.isSuccess === false) throw Object.assign(new Error('API организаторов: ' + (payload.error || 'isSuccess=false')), { status: 502 });
+  const records = extractRecords(payload);
+  store.saveDataset(g, records);
+  return { group_id: g, total: records.length };
+});
+route('POST', '/api/datasets/upload', async ({ body }) => {
+  const records = extractRecords(body.payload);
+  const g = String(body.group_id || body.payload?.data?.dataset_group_id || 'UPLOAD').trim();
+  store.saveDataset(g, records);
+  return { group_id: g, total: records.length };
+});
+
+// conversations
+route('GET', '/api/conversations', ({ query }) => {
+  const g = query.get('group_id');
+  const cl = store.getChecklist(query.get('checklist')) || store.activeChecklist();
+  const ds = store.getDataset(g);
+  if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
+  return { group_id: g, checklist_uid: cl.uid, items: ds.records.map((r) => summarize(r, cl.uid)) };
+});
+route('GET', '/api/conversations/:id', ({ params, query }) => {
+  const f = store.findConversation(decodeURIComponent(params.id), query.get('group_id'));
+  if (!f) throw Object.assign(new Error('Диалог не найден'), { status: 404 });
+  const evals = store.listEvaluations({ conversation_id: f.record.conversation_id }).map((e) => ({ id: e.id, checklist_uid: e.checklist_uid, created_at: e.created_at, status: e.status, total: (e.final_result || e.result || {}).total ?? null }));
+  return { group_id: f.group_id, record: f.record, evaluations: evals };
+});
+
+// checklists
+route('GET', '/api/checklists', () => ({ active: store.activeChecklist()?.uid, items: store.listChecklists().map((c) => ({ uid: c.uid, id: c.id, name: c.name, version: c.version, saved_at: c.saved_at, criteria: c.criteria.length })) }));
+route('GET', '/api/checklists/:uid', ({ params }) => {
+  const c = store.getChecklist(decodeURIComponent(params.uid));
+  if (!c) throw Object.assign(new Error('Чек-лист не найден'), { status: 404 });
+  return c;
+});
+route('POST', '/api/checklists', ({ body }) => {
+  const errs = validateChecklist(body.checklist);
+  if (errs.length) throw Object.assign(new Error(errs.join('; ')), { status: 400 });
+  const { uid, saved_at, version, ...clean } = body.checklist;
+  return store.saveChecklist(clean, { activate: body.activate !== false });
+});
+route('POST', '/api/checklists/:uid/activate', ({ params }) => {
+  if (!store.setActive(decodeURIComponent(params.uid))) throw Object.assign(new Error('Чек-лист не найден'), { status: 404 });
+  return { active: decodeURIComponent(params.uid) };
+});
+
+// evaluation
+route('POST', '/api/evaluate', async ({ body }) => {
+  const f = store.findConversation(body.conversation_id, body.group_id);
+  if (!f) throw Object.assign(new Error('Диалог не найден'), { status: 404 });
+  const cl = store.getChecklist(body.checklist_uid) || store.activeChecklist();
+  const ev = await runEvaluation(f.record, f.group_id, cl);
+  if (ev.status === 'error') throw Object.assign(new Error(ev.error), { status: 502 });
+  return ev;
+});
+route('POST', '/api/evaluate-batch', ({ body }) => {
+  const ds = store.getDataset(body.group_id);
+  if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
+  const cl = store.getChecklist(body.checklist_uid) || store.activeChecklist();
+  let records = ds.records;
+  if (body.only_missing) records = records.filter((r) => { const e = store.latestEvaluation(r.conversation_id, cl.uid); return !e || e.status === 'error'; });
+  const job = { id: 'job_' + Date.now(), group_id: body.group_id, checklist_uid: cl.uid, total: records.length, done: 0, errors: [], cost_usd: 0, status: 'running', started_at: new Date().toISOString() };
+  jobs.set(job.id, job);
+  runBatch(job, records, body.group_id, cl);
+  return job;
+});
+route('GET', '/api/jobs/:id', ({ params }) => {
+  const j = jobs.get(params.id);
+  if (!j) throw Object.assign(new Error('Задача не найдена'), { status: 404 });
+  return j;
+});
+route('POST', '/api/jobs/:id/cancel', ({ params }) => {
+  const j = jobs.get(params.id);
+  if (j) j.cancelled = true;
+  return j || {};
+});
+route('GET', '/api/evaluations/:id', ({ params }) => {
+  const e = store.getEvaluation(params.id);
+  if (!e) throw Object.assign(new Error('Оценка не найдена'), { status: 404 });
+  return { ...e, appeals: store.listAppeals({ evaluation_id: e.id }) };
+});
+
+// appeals
+route('POST', '/api/appeals', ({ body }) => {
+  const ev = store.getEvaluation(body.evaluation_id);
+  if (!ev || !ev.result) throw Object.assign(new Error('Оценка не найдена'), { status: 404 });
+  const row = ev.result.criteria.find((c) => c.criterion_id === body.criterion_id);
+  if (!row) throw Object.assign(new Error('Критерий не найден'), { status: 400 });
+  if (!String(body.comment || '').trim()) throw Object.assign(new Error('Нужен комментарий'), { status: 400 });
+  if (store.listAppeals({ evaluation_id: ev.id, status: 'open' }).some((a) => a.criterion_id === body.criterion_id))
+    throw Object.assign(new Error('По этому критерию уже есть открытая апелляция'), { status: 409 });
+  const current = (ev.final_result || ev.result).criteria.find((c) => c.criterion_id === body.criterion_id);
+  const ap = store.addAppeal({
+    evaluation_id: ev.id,
+    conversation_id: ev.conversation_id,
+    group_id: ev.group_id,
+    criterion_id: body.criterion_id,
+    criterion_name: row.name,
+    disputed_answer: current.answer,
+    disputed_points: current.points,
+    requested_answer: body.requested_answer ?? null,
+    comment: String(body.comment).trim(),
+    author: body.author || 'Оператор',
+  });
+  store.updateEvaluation(ev.id, { status: 'appealed' });
+  return ap;
+});
+route('GET', '/api/appeals', ({ query }) => {
+  return store.listAppeals({ status: query.get('status') || undefined }).map((a) => {
+    const ev = store.getEvaluation(a.evaluation_id);
+    return { ...a, total: (ev.final_result || ev.result).total };
+  });
+});
+route('POST', '/api/appeals/:id/decision', ({ params, body }) => {
+  const ap = store.getAppeal(params.id);
+  if (!ap) throw Object.assign(new Error('Апелляция не найдена'), { status: 404 });
+  if (ap.status !== 'open') throw Object.assign(new Error('Апелляция уже рассмотрена'), { status: 409 });
+  if (!String(body.reason || '').trim()) throw Object.assign(new Error('Укажите причину решения'), { status: 400 });
+  const ev = store.getEvaluation(ap.evaluation_id);
+  const before = (ev.final_result || ev.result).total;
+  const overrides = { ...(ev.overrides || {}) };
+  let action = body.action === 'change' ? 'change' : 'confirm';
+  if (action === 'change') {
+    overrides[ap.criterion_id] = { answer: body.answer, reason: body.reason, reviewer: body.reviewer || 'Проверяющий', appeal_id: ap.id, at: new Date().toISOString() };
+  }
+  const tmp = { ...ev, overrides };
+  const final = recompute(tmp);
+  const newAnswer = final.criteria.find((c) => c.criterion_id === ap.criterion_id).answer;
+  if (action === 'change' && String(newAnswer) === String(ap.disputed_answer)) action = 'confirm';
+  const remainingOpen = store.listAppeals({ evaluation_id: ev.id, status: 'open' }).filter((a) => a.id !== ap.id).length;
+  store.updateEvaluation(ev.id, { overrides, final_result: final, status: remainingOpen ? 'appealed' : 'reviewed' });
+  return store.updateAppeal(ap.id, {
+    status: action === 'change' ? 'changed' : 'confirmed',
+    decision: { action, answer: newAnswer, reason: String(body.reason).trim(), reviewer: body.reviewer || 'Проверяющий', decided_at: new Date().toISOString(), total_before: before, total_after: final.total },
+  });
+});
+
+// export: final results of a group for the active (or given) checklist
+route('GET', '/api/export', ({ query }) => {
+  const g = query.get('group_id');
+  const cl = store.getChecklist(query.get('checklist')) || store.activeChecklist();
+  const ds = store.getDataset(g);
+  if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
+  return ds.records.map((r) => {
+    const e = store.latestEvaluation(r.conversation_id, cl.uid);
+    const fin = e && (e.final_result || e.result);
+    return {
+      conversation_id: r.conversation_id,
+      checklist: cl.uid,
+      total: fin ? fin.total : null,
+      gross_error: fin ? fin.gross_error : null,
+      criteria: fin ? fin.criteria.map((c) => ({ id: c.criterion_id, answer: c.answer, points: c.points, explanation: c.explanation, evidence: c.evidence.map((x) => ({ msg: x.msg, quote: x.quote })) })) : null,
+    };
+  });
+});
+
+// ---------------- static ----------------
+const PUBLIC = path.join(__dirname, 'public');
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml' };
+function serveStatic(req, res, pathname) {
+  let p = path.normalize(path.join(PUBLIC, pathname === '/' ? 'index.html' : pathname));
+  if (!p.startsWith(PUBLIC)) return fail(res, 403, 'Forbidden');
+  if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) p = path.join(PUBLIC, 'index.html');
+  send(res, 200, fs.readFileSync(p), { 'content-type': MIME[path.extname(p)] || 'application/octet-stream' });
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (req.method === 'OPTIONS') return send(res, 204, '');
+  if (!url.pathname.startsWith('/api/')) return serveStatic(req, res, url.pathname);
+  for (const r of routes) {
+    if (r.method !== req.method) continue;
+    const m = url.pathname.match(r.re);
+    if (!m) continue;
+    const params = {};
+    r.keys.forEach((k, i) => (params[k] = m[i + 1]));
+    try {
+      const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : {};
+      const out = await r.handler({ params, query: url.searchParams, body, req });
+      return send(res, 200, out);
+    } catch (e) {
+      return fail(res, e.status || 500, e.message || String(e));
+    }
+  }
+  fail(res, 404, 'Not found');
+});
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    const c = llm.config();
+    console.log(`CQA running: http://localhost:${PORT}  (LLM: ${c.provider}${c.model ? ' / ' + c.model : ''})`);
+  });
+}
+module.exports = { server, recompute, validateChecklist };

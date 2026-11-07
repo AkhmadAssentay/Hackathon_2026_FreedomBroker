@@ -1,0 +1,66 @@
+{
+  "error": "",
+  "isSuccess": true,
+  "data": {
+    "dataset_group_id": "SAMPLE",
+    "total_records": 4,
+    "records": [
+      {
+        "conversation_id": "sample-ru-001",
+        "channel": "agent chat",
+        "language": "RU",
+        "transcript": [
+          { "timestamp": "00:00", "speaker": "bot", "text": "Здравствуйте! Я виртуальный помощник Freedom Broker. Опишите ваш вопрос." },
+          { "timestamp": "00:15", "speaker": "client", "text": "Хочу узнать, почему у меня заблокирован вывод средств со счёта" },
+          { "timestamp": "00:20", "speaker": "system", "text": "Чат передан оператору" },
+          { "timestamp": "01:05", "speaker": "operator", "text": "Здравствуйте! Меня зовут Айгерим, я помогу вам. Для проверки данных по счёту, пожалуйста, пройдите идентификацию по ссылке в чате." },
+          { "timestamp": "02:10", "speaker": "system", "text": "Клиент успешно прошёл идентификацию" },
+          { "timestamp": "02:30", "speaker": "operator", "text": "Спасибо! Подскажите, какую сумму и на какой банк вы пытались вывести?" },
+          { "timestamp": "03:00", "speaker": "client", "text": "50 000 тенге на Kaspi, уже третий день не могу, это очень неудобно" },
+          { "timestamp": "03:20", "speaker": "operator", "text": "Понимаю, три дня ожидания — это действительно неприятно. Сейчас проверю статус заявки, это займёт около двух минут." },
+          { "timestamp": "05:10", "speaker": "operator", "text": "Вывод приостановлен, так как не загружен актуальный документ, удостоверяющий личность. Загрузите его в личном кабинете в разделе Профиль → Документы, после проверки (до 1 рабочего дня) вывод будет доступен." },
+          { "timestamp": "05:40", "speaker": "client", "text": "Понял, спасибо" },
+          { "timestamp": "05:55", "speaker": "operator", "text": "Итак, загрузите документ, и вывод разблокируют в течение рабочего дня. Могу ли я ещё чем-то помочь? Хорошего дня!" }
+        ],
+        "audio_url": null
+      },
+      {
+        "conversation_id": "sample-ru-002",
+        "channel": "agent chat",
+        "language": "RU",
+        "transcript": [
+          { "timestamp": "00:00", "speaker": "client", "text": "Какой у вас тариф на сделки с американскими акциями?" },
+          { "timestamp": "04:30", "speaker": "operator", "text": "Добрый день. Комиссия зависит от тарифа, посмотрите на сайте." },
+          { "timestamp": "05:00", "speaker": "client", "text": "Я смотрел, там непонятно. Почему так долго отвечаете?" },
+          { "timestamp": "05:20", "speaker": "operator", "text": "Могу проконсультировать вас лично и выгоднее, оставьте свой личный номер WhatsApp, обсудим частным образом." },
+          { "timestamp": "06:00", "speaker": "system", "text": "Чат закрыт оператором" }
+        ],
+        "audio_url": null
+      },
+      {
+        "conversation_id": "sample-kz-001",
+        "channel": "agent chat",
+        "language": "KZ",
+        "transcript": [
+          { "timestamp": "00:00", "speaker": "client", "text": "Сәлеметсіз бе, шот ашу үшін қандай құжаттар керек?" },
+          { "timestamp": "00:40", "speaker": "operator", "text": "Сәлеметсіз бе! Менің атым Ерлан. Шот ашу үшін тек жеке куәлік қажет, қосымшада 10 минутта ашуға болады." },
+          { "timestamp": "01:10", "speaker": "client", "text": "Рақмет!" },
+          { "timestamp": "01:25", "speaker": "operator", "text": "Оқасы жоқ! Тағы сұрақтарыңыз болса, жазыңыз. Сау болыңыз!" }
+        ],
+        "audio_url": null
+      },
+      {
+        "conversation_id": "sample-en-call-001",
+        "channel": "voice call",
+        "language": "EN",
+        "transcript": [
+          { "timestamp": "2026-11-01T10:00:00+05:00", "speaker": "operator", "text": "Hello, thank you for calling Freedom Broker, my name is Daniel. How can I help you?" },
+          { "timestamp": "2026-11-01T10:00:09+05:00", "speaker": "client", "text": "Hi, I want to know my current account balance." },
+          { "timestamp": "2026-11-01T10:00:15+05:00", "speaker": "operator", "text": "Sure, your balance is 12,430 dollars and you have three open positions." },
+          { "timestamp": "2026-11-01T10:00:30+05:00", "speaker": "client", "text": "Okay thanks." }
+        ],
+        "audio_url": "https://example.com/audio/sample-en-call-001.mp3"
+      }
+    ]
+  }
+}
