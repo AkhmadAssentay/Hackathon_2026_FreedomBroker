@@ -210,6 +210,18 @@ route('GET', '/api/config', async () => {
   return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: (await store.activeChecklist())?.uid, storage: store.backend, serverless: SERVERLESS, audio_enabled: AUDIO_PUBLIC };
 });
 
+// Which hosted models this deployment's key can use (ids only; the key is never returned).
+route('GET', '/api/llm/models', async () => {
+  const c = llm.config();
+  const base = c.provider === 'groq' ? process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1' : c.provider === 'openai' ? process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1' : null;
+  const key = c.provider === 'groq' ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
+  if (!base || !key) return { provider: c.provider, models: [] };
+  const r = await fetch(base + '/models', { headers: { authorization: `Bearer ${key}` } });
+  if (!r.ok) throw Object.assign(new Error(`models: HTTP ${r.status}`), { status: 502 });
+  const j = await r.json();
+  return { provider: c.provider, primary: c.model, models: (j.data || []).map((m) => ({ id: m.id, owned_by: m.owned_by, context_window: m.context_window, active: m.active })).sort((a, b) => a.id.localeCompare(b.id)) };
+});
+
 // active (or requested) checklist
 async function pickChecklist(uid) {
   return (uid && (await store.getChecklist(uid))) || (await store.activeChecklist());
