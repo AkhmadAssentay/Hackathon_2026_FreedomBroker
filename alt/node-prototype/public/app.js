@@ -656,7 +656,7 @@
           ${a.status === 'open' ? `
             <div class="appeal-form" style="margin-top:12px">
               <b>Решение проверяющего</b>
-              <div class="row"><label class="row small"><input type="radio" name="act-${a.id}" value="confirm" checked> Подтвердить оценку</label><label class="row small"><input type="radio" name="act-${a.id}" value="change"> Изменить на</label>${answerSelect(c, a.requested_answer ?? '', 'ans-' + a.id, false)}</div>
+              <div class="row"><label class="row small"><input type="radio" name="act-${a.id}" value="confirm"> Подтвердить оценку</label><label class="row small"><input type="radio" name="act-${a.id}" value="change"> Изменить на</label>${answerSelect(c, a.requested_answer ?? '', 'ans-' + a.id, false)}</div>
               <label class="f">Причина *<textarea id="rsn-${a.id}" placeholder="Например: системное сообщение [4] подтверждает идентификацию"></textarea></label>
               <div class="row"><button class="btn primary" id="dec-${a.id}">Сохранить решение</button><span class="small muted">Текущий итог диалога: <b>${a.total ?? '—'}</b></span></div>
             </div>` : `
@@ -668,10 +668,17 @@
         </div>`;
       box.appendChild(el);
       const dec = $('#dec-' + a.id, el);
+      // Choosing a new answer means "change": select it automatically, so the decision cannot be
+      // saved as "confirm" by accident (the cause of appeals that did not change the score).
+      const sel = $('#ans-' + a.id, el);
+      if (sel) sel.addEventListener('change', () => { const r = $(`input[name="act-${a.id}"][value="change"]`, el); if (r) r.checked = true; });
       if (dec) dec.onclick = async () => {
-        const action = $(`input[name="act-${a.id}"]:checked`, el).value;
+        const picked = $(`input[name="act-${a.id}"]:checked`, el);
+        if (!picked) return toast('Выберите решение: «Подтвердить оценку» или «Изменить на»', true);
+        const action = picked.value;
         const reason = $('#rsn-' + a.id, el).value.trim();
         if (!reason) return toast('Укажите причину решения', true);
+        if (action === 'change' && String(sel.value) === String(a.disputed_answer)) return toast('Новая оценка совпадает со спорной — выберите другое значение или «Подтвердить оценку»', true);
         try {
           const out = await api(`/appeals/${a.id}/decision`, { method: 'POST', body: { action, answer: $('#ans-' + a.id, el).value, reason } });
           toast(`Решение сохранено. Итог: ${out.decision.total_before} → ${out.decision.total_after}`);

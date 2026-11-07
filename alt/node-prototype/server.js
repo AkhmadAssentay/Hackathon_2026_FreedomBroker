@@ -363,7 +363,8 @@ route('POST', '/api/appeals/:id/decision', async ({ params, body }) => {
   const tmp = { ...ev, overrides };
   const final = recompute(tmp);
   const newAnswer = final.criteria.find((c) => c.criterion_id === ap.criterion_id).answer;
-  if (action === 'change' && String(newAnswer) === String(ap.disputed_answer)) action = 'confirm';
+  // A "change" to the same answer is almost always a form mistake: reject it instead of silently confirming.
+  if (action === 'change' && String(newAnswer) === String(ap.disputed_answer)) throw Object.assign(new Error('Новая оценка совпадает со спорной: выберите другое значение или подтвердите оценку'), { status: 400 });
   const remainingOpen = (await store.listAppeals({ evaluation_id: ev.id, status: 'open' })).filter((a) => a.id !== ap.id).length;
   await store.updateEvaluation(ev.id, { overrides, final_result: final, status: remainingOpen ? 'appealed' : 'reviewed' });
   return store.updateAppeal(ap.id, {

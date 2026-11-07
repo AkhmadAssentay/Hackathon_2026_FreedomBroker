@@ -14,7 +14,23 @@ const DEFAULT_MODELS = {
 // PRICE_INPUT_PER_MTOK / PRICE_OUTPUT_PER_MTOK in .env override them.
 const DEFAULT_PRICES = {
   'groq:openai/gpt-oss-120b': [0.15, 0.6],
+  'groq:openai/gpt-oss-20b': [0.075, 0.3],
 };
+
+// Fallback models: each hosted model has its own rate-limit quota, so when one runs out (tokens per
+// day / per minute, or a request is too large for it) the next one takes over. LLM_FALLBACK_MODELS
+// overrides the list (comma-separated; empty string disables fallback).
+const DEFAULT_FALLBACKS = { groq: ['openai/gpt-oss-20b'] };
+function fallbackModels(provider, primary) {
+  const env = process.env.LLM_FALLBACK_MODELS;
+  const list = env !== undefined ? env.split(',').map((x) => x.trim()).filter(Boolean) : DEFAULT_FALLBACKS[provider] || [];
+  return list.filter((m) => m !== primary);
+}
+function priceFor(provider, model) {
+  const known = DEFAULT_PRICES[`${provider}:${model}`];
+  if (process.env.PRICE_INPUT_PER_MTOK || process.env.PRICE_OUTPUT_PER_MTOK) return [Number(process.env.PRICE_INPUT_PER_MTOK || 0), Number(process.env.PRICE_OUTPUT_PER_MTOK || 0)];
+  return known || [0, 0];
+}
 
 function config() {
   const provider = (process.env.LLM_PROVIDER || autodetect()).toLowerCase();
@@ -74,9 +90,13 @@ async function callAnthropic({ system, user, schema }, model) {
 
 // OpenAI-compatible chat completions (OpenAI, Groq, Ollama, vLLM).
 async function chatCompletions(base, key, { system, user, schema }, model) {
+  // gpt-oss models "think" before answering and those tokens count toward rate limits. The task is
+  // already split into narrow questions, so low reasoning effort keeps quality and saves most of them.
+  const effort = /gpt-oss/.test(model) ? process.env.LLM_REASONING_EFFORT || 'low' : null;
   const body = (format) => ({
     model,
     temperature: 0,
+    ...(effort ? { reasoning_effort: effort } : {}),
     response_format: format,
     messages: [
       { role: 'system', content: system },
@@ -94,7 +114,8 @@ async function chatCompletions(base, key, { system, user, schema }, model) {
   }
   return {
     text: data.choices?.[0]?.message?.content || '',
-    usage: { input: data.usage?.prompt_tokens || 0, output: data.usage?.completion_tokens || 0 },
+    // cached input tokens do not count toward Groq rate limits and cost less
+    usage: { input: data.usage?.prompt_tokens || 0, output: data.usage?.completion_tokens || 0, cached: data.usage?.prompt_tokens_details?.cached_tokens || 0 },
   };
 }
 
@@ -128,33 +149,62 @@ function extractJson(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
+// Models known to have run out of quota, with the time they become usable again (per instance).
+const exhausted = (globalThis.__cqaExhausted = globalThis.__cqaExhausted || new Map());
+
 async function complete(prompt, { model } = {}) {
   const cfg = config();
   const fn = { anthropic: callAnthropic, openai: callOpenAI, groq: callGroq, gemini: callGemini }[cfg.provider];
   if (!fn) throw new Error(`Неизвестный LLM_PROVIDER: ${cfg.provider}`);
-  let lastErr;
+  // An explicit model (second-opinion jury) is used alone; otherwise the primary model, then fallbacks.
+  const models = model ? [model] : [cfg.model, ...fallbackModels(cfg.provider, cfg.model)];
   // A serverless function has a hard time limit, so it must not sit out a long rate-limit wait:
   // past this budget the 429 goes back to the caller, which retries later.
   const started = Date.now();
   const waitBudgetMs = Number(process.env.LLM_MAX_WAIT_SEC || (process.env.VERCEL ? 25 : 300)) * 1000;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const r = await fn(prompt, model || cfg.model);
-      const json = extractJson(r.text);
-      const cost = (r.usage.input * cfg.priceIn + r.usage.output * cfg.priceOut) / 1e6;
-      // A model served locally (Ollama, vLLM) costs nothing per call.
-      const costUsd = isLocal() ? 0 : cfg.priceIn || cfg.priceOut ? cost : null;
-      return { json, usage: r.usage, cost_usd: costUsd, model: model || cfg.model, provider: cfg.provider, local: isLocal() };
-    } catch (e) {
-      lastErr = e;
-      if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) break; // bad request / auth: retrying will not help
-      // Rate limits (free Groq tier): wait as long as the API asks, capped.
-      const waitMs = e.status === 429 ? Math.min((e.retryAfterSec || 10) * 1000, 60000) : 1500 * (attempt + 1);
-      if (e.status === 429 && Date.now() - started + waitMs > waitBudgetMs) break;
-      await new Promise((res) => setTimeout(res, waitMs));
+  let lastErr;
+  let soonest = null; // earliest moment any model frees up, for the caller's retry hint
+  const skipped = [];
+  for (const m of models) {
+    const until = exhausted.get(m);
+    if (until && until > Date.now() && models.length > 1) { skipped.push(m); soonest = Math.min(soonest ?? until, until); continue; }
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fn(prompt, m);
+        const json = extractJson(r.text);
+        const [pIn, pOut] = priceFor(cfg.provider, m);
+        const cached = r.usage.cached || 0;
+        const cost = ((r.usage.input - cached) * pIn + cached * pIn * 0.5 + r.usage.output * pOut) / 1e6;
+        // A model served locally (Ollama, vLLM) costs nothing per call.
+        const costUsd = isLocal() ? 0 : pIn || pOut ? cost : null;
+        exhausted.delete(m);
+        return { json, usage: r.usage, cost_usd: costUsd, model: m, provider: cfg.provider, local: isLocal(), ...(m !== models[0] ? { fallback_from: models[0], skipped } : {}) };
+      } catch (e) {
+        lastErr = e;
+        const waitMs = e.status === 429 ? Math.min((e.retryAfterSec || 10) * 1000, 60000) : 1500 * (attempt + 1);
+        // Out of quota (long wait) or request too large for this model's limit: move on to the next model.
+        const quotaGone = e.status === 413 || (e.status === 429 && (e.retryAfterSec || 0) * 1000 > waitBudgetMs);
+        if (quotaGone) {
+          const freeAt = Date.now() + (e.retryAfterSec ? e.retryAfterSec * 1000 : 60000);
+          exhausted.set(m, freeAt);
+          soonest = Math.min(soonest ?? freeAt, freeAt);
+          skipped.push(m);
+          break;
+        }
+        if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) throw e; // bad request / auth: not a quota problem
+        if (e.status === 429 && Date.now() - started + waitMs > waitBudgetMs) { soonest = Math.min(soonest ?? Date.now() + waitMs, Date.now() + waitMs); break; }
+        await new Promise((res) => setTimeout(res, waitMs));
+      }
     }
   }
-  throw lastErr;
+  // Every model is rate-limited right now: tell the caller when to come back.
+  if (lastErr && (lastErr.status === 429 || lastErr.status === 413 || skipped.length)) {
+    throw Object.assign(new Error(`Лимит модели исчерпан (${[...new Set(skipped.length ? skipped : models)].join(', ')})`), {
+      status: 429,
+      retryAfterSec: soonest ? Math.max(5, Math.ceil((soonest - Date.now()) / 1000)) : 30,
+    });
+  }
+  throw lastErr || new Error('Модель не ответила');
 }
 
 module.exports = { complete, config, extractJson, isLocal };
