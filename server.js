@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { Readable } = require('stream');
 
 // ---- minimal .env loader ----
 const envFile = path.join(__dirname, '.env');
@@ -354,6 +355,41 @@ route('GET', '/api/export', ({ query }) => {
   });
 });
 
+// ---------------- call audio ----------------
+// audio_url from the organizers' API is an HTML player page whose <source> holds a signed mp3 link
+// that expires after about an hour. Resolve it on the server (no CORS) and stream the mp3, with
+// Range support so the player can seek to a message.
+const audioCache = new Map(); // audio_url -> { src, exp }
+async function resolveAudio(pageUrl, force = false) {
+  const hit = audioCache.get(pageUrl);
+  if (!force && hit && hit.exp > Date.now()) return hit.src;
+  const r = await fetch(pageUrl);
+  if (!r.ok) throw Object.assign(new Error(`Страница записи: HTTP ${r.status}`), { status: 502 });
+  let src = pageUrl;
+  if (!(r.headers.get('content-type') || '').startsWith('audio/')) {
+    const html = await r.text();
+    const m = html.match(/<source[^>]*\ssrc="([^"]+)"/i) || html.match(/<audio[^>]*\ssrc="([^"]+)"/i);
+    if (!m) throw Object.assign(new Error('На странице записи не найдена ссылка на аудио'), { status: 502 });
+    src = m[1].replace(/&amp;/g, '&');
+  } else r.body?.cancel();
+  let exp = Date.now() + 10 * 60 * 1000;
+  try { const se = Date.parse(new URL(src).searchParams.get('se')); if (se) exp = se - 2 * 60 * 1000; } catch {}
+  audioCache.set(pageUrl, { src, exp });
+  return src;
+}
+async function serveAudio(req, res, url) {
+  const f = store.findConversation(url.searchParams.get('id') || '', url.searchParams.get('group_id'));
+  if (!f || !f.record.audio_url) return fail(res, 404, 'У диалога нет записи');
+  const headers = req.headers.range ? { range: req.headers.range } : {};
+  let up = await fetch(await resolveAudio(f.record.audio_url), { headers });
+  if (up.status === 401 || up.status === 403) up = await fetch(await resolveAudio(f.record.audio_url, true), { headers });
+  const out = { 'content-type': up.headers.get('content-type') || 'audio/mpeg', 'accept-ranges': 'bytes', 'cache-control': 'no-store' };
+  for (const h of ['content-length', 'content-range']) if (up.headers.get(h)) out[h] = up.headers.get(h);
+  res.writeHead(up.status, out);
+  if (up.body) Readable.fromWeb(up.body).on('error', () => res.destroy()).pipe(res);
+  else res.end();
+}
+
 // ---------------- static ----------------
 const PUBLIC = path.join(__dirname, 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml' };
@@ -361,13 +397,15 @@ function serveStatic(req, res, pathname) {
   let p = path.normalize(path.join(PUBLIC, pathname === '/' ? 'index.html' : pathname));
   if (!p.startsWith(PUBLIC)) return fail(res, 403, 'Forbidden');
   if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) p = path.join(PUBLIC, 'index.html');
-  send(res, 200, fs.readFileSync(p), { 'content-type': MIME[path.extname(p)] || 'application/octet-stream' });
+  // no-cache: after an update the browser revalidates instead of running a stale app.js
+  send(res, 200, fs.readFileSync(p), { 'content-type': MIME[path.extname(p)] || 'application/octet-stream', 'cache-control': 'no-cache' });
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'OPTIONS') return send(res, 204, '');
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res, url.pathname);
+  if (req.method === 'GET' && url.pathname === '/api/audio') return serveAudio(req, res, url).catch((e) => (res.headersSent ? res.destroy() : fail(res, e.status || 502, e.message)));
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = url.pathname.match(r.re);

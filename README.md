@@ -26,7 +26,30 @@ Open http://localhost:3000. Then:
 
 ## LLM
 
-Set one key in `.env`. The provider is auto-detected from the key:
+**Default setup for the demo: Qwen 2.5 7B running locally through Ollama.** It is free (cost of one evaluation: $0) and needs no internet. Tested on a MacBook Air M4 with 16 GB RAM.
+
+```bash
+brew install ollama
+OLLAMA_CONTEXT_LENGTH=16384 ollama serve     # keep this running; 16K context fits the longest calls
+ollama pull qwen2.5:7b                       # ~4.7 GB, once
+```
+
+`.env`:
+
+```
+LLM_PROVIDER=openai
+LLM_MODEL=qwen2.5:7b
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=ollama
+EVAL_CONCURRENCY=1
+LLM_TIMEOUT_MS=300000
+```
+
+`OLLAMA_CONTEXT_LENGTH` matters: Ollama's default context is smaller than a long call transcript plus the checklist, and it would silently cut the prompt.
+
+A local model only works when the app runs on the same machine (`npm start`). A static deploy (e.g. Vercel) serves only the UI and has no backend or model, so run the demo locally.
+
+Cloud alternatives: set one key in `.env`. The provider is auto-detected from the key:
 
 | Provider | Key | Default model (`LLM_MODEL` to override) |
 |---|---|---|

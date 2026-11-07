@@ -234,6 +234,8 @@
     const ev = evId ? await api('/evaluations/' + evId) : null;
     const res = ev ? ev.final_result || ev.result : null;
     const isCall = rec.channel === 'voice call';
+    // the API's audio_url is an HTML player page; the backend resolves it to the mp3 and streams it
+    const audioSrc = rec.audio_url ? `${API}/audio?group_id=${encodeURIComponent(group)}&id=${encodeURIComponent(rec.conversation_id)}` : null;
 
     // seconds offsets for audio seek
     let t0 = null;
@@ -260,7 +262,7 @@
       </div>
       <div class="card-grid">
         <section class="panel transcript" id="tr">
-          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="none" src="${esc(rec.audio_url)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
+          ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
           ${msgs.map((m) => `
             <div class="msg ${esc(m.speaker)}" id="m-${m.idx}">
               <div class="n">${m.idx}</div>
