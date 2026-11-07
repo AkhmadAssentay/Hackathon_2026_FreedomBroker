@@ -124,9 +124,9 @@
  "cost": {
   "usd_total": 0,
   "dialogues": 65,
-  "calls": 623,
+  "calls": 720,
   "usd_per_dialogue": 0.0,
-  "input_tokens": 1354656,
-  "output_tokens": 478460
+  "input_tokens": 1595214,
+  "output_tokens": 856663
  }
 }

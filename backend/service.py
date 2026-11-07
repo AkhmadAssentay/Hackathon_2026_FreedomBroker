@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import threading
+
+import httpx
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -182,7 +184,26 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
         else:
             groups.setdefault(id(prov), (prov, []))[1].append(c)
     for prov, missing in groups.values():
-        results.update(_evaluate_group(key, conv, cl, prov, missing, use_memory))
+        try:
+            results.update(_evaluate_group(key, conv, cl, prov, missing, use_memory))
+        except budget.BudgetExceeded:
+            if getattr(prov, "name", "") != "claude":
+                raise
+            # Claude budget exhausted: the free local model takes over these criteria
+            alt = provider_from_spec("local_sc5")
+            res = _evaluate_group(key, conv, cl, alt, missing, use_memory)
+            for r in res.values():
+                r.setdefault("validator_notes", []).append("лимит бюджета Claude исчерпан — оценено локальной моделью")
+            results.update(res)
+        except (httpx.HTTPError, OSError) as e:
+            if getattr(prov, "name", "") != "local":
+                raise
+            # GPU server / tunnel unavailable: the router's default (Claude) takes over
+            alt = provider_from_spec(router_config().get("default", "claude:claude-sonnet-5-5"))
+            res = _evaluate_group(key, conv, cl, alt, missing, use_memory)
+            for r in res.values():
+                r.setdefault("validator_notes", []).append(f"локальная модель недоступна ({type(e).__name__}) — оценено Claude")
+            results.update(res)
 
     answers = {cid: r.get("answer") for cid, r in results.items()}
     sc = score(cl, answers)
@@ -458,3 +479,43 @@ def analytics(group_id: str | None = None, version: int | None = None, model: st
         "worst": [{"total": t, "key": k, "cid": c} for t, k, c in worst],
         "cost_usd": round(sum(v["cost_usd"] for _, v in evs), 4),
     }
+
+
+# ------------------------------------------------------------------ summary and coaching
+
+
+def insights(eval_id: int) -> dict:
+    """One-line summary of the request + 2-3 coaching tips grounded in the failed criteria.
+    Written by the free local model (Claude if the GPU server is unavailable); cached per evaluation."""
+    row = db.q1("SELECT json FROM insights WHERE evaluation_id=?", (eval_id,))
+    if row:
+        return json.loads(row["json"])
+    v = evaluation_view(eval_id)
+    conv = get_conv(v["conv_key"])
+    from .judge import render_transcript
+    crits = {c["id"]: c for c in v["checklist"]["criteria"]}
+    issues = []
+    for cid, r in v["results"].items():
+        a = v["final_answers"].get(cid)
+        c = crits.get(cid)
+        if not c or a in (None, "na"):
+            continue
+        bad = (a == "yes") if c.get("gross") else (a == "no" if c["type"] == "binary" else float(a) < max(float(x["value"]) for x in c["scale"]))
+        if bad:
+            issues.append(f"- {c['title']}: {r.get('explanation', '')}")
+    schema = {"type": "object", "properties": {"summary": {"type": "string"},
+              "coaching": {"type": "array", "items": {"type": "string"}}},
+              "required": ["summary", "coaching"], "additionalProperties": False}
+    user = ("Транскрипт:\n" + render_transcript(conv) + "\n\nЗамечания проверки:\n" + ("\n".join(issues) or "- замечаний нет")
+            + "\n\nВерни JSON: summary — одно предложение по-русски: с чем обратился клиент и чем закончилось; "
+              "coaching — 0–3 коротких конкретных совета оператору по-русски, только по замечаниям выше (пустой список, если замечаний нет).")
+    system = "Ты наставник операторов поддержки брокера. Пиши кратко, по делу, без общих фраз."
+    try:
+        out = provider_from_spec("local").complete(system, user, schema, v["conv_key"], "insights")
+    except (httpx.HTTPError, OSError):
+        out = provider_from_spec("claude:claude-haiku-5-5").complete(system, user, schema, v["conv_key"], "insights")
+    data = {"summary": out["data"].get("summary", ""), "coaching": out["data"].get("coaching", [])[:3]}
+    if needs_russian(data["summary"]):
+        data["summary"] = ""
+    db.ex("INSERT OR REPLACE INTO insights VALUES (?,?,?)", (eval_id, db.dumps(data), db.now()))
+    return data

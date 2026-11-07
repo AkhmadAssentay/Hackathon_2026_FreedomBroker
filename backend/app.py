@@ -86,6 +86,15 @@ def peaks(key: str):
         _err(e, 502)
 
 
+@app.get("/api/audio/{key}/analysis")
+def audio_analysis(key: str):
+    from .audio_align import analysis
+    a = analysis(service.get_conv(key))
+    if not a:
+        _err(KeyError("нет выравнивания по словам для этой записи (hpc/whisper.sbatch)"), 404)
+    return a
+
+
 @app.get("/api/analytics")
 def analytics(group_id: str | None = None, version: int | None = None, model: str | None = None):
     return service.analytics(group_id, version, model)
@@ -166,6 +175,16 @@ def evaluation(eid: int):
         return service.evaluation_view(eid)
     except KeyError as e:
         _err(e, 404)
+
+
+@app.get("/api/evaluations/{eid}/insights")
+def evaluation_insights(eid: int):
+    try:
+        return service.insights(eid)
+    except KeyError as e:
+        _err(e, 404)
+    except Exception as e:
+        _err(e, 502)
 
 
 # ---------------------------------------------------------------- appeals

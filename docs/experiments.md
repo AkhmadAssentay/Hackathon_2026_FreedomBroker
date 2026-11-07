@@ -16,11 +16,12 @@ Selection on `dev`, reported on `test` (deterministic split of 44 reference dial
 | app:local:Qwen3.5-35B-A3B-GPTQ-Int4 | 0.8929 | 0.8042 | 0.8324 | 0.854 | 0.86 | 0.854 | 0.5 | 7.85 | 6/1/0 | 0.0 |
 | haiku_sub | 0.8036 | 0.775 | 0.7841 | 0.781 | 0.801 | 0.833 | 0.5 | 13.69 | 6/1/0 | 0.0012 |
 | haiku | 0.7768 | 0.7333 | 0.7472 | 0.75 | 0.721 | 0.792 | 0.708 | 12.26 | 6/1/0 | 0.00095 |
+| gemma | 0.7857 | 0.6917 | 0.7216 | 0.76 | 0.706 | 0.76 | 0.5 | 16.24 | 4/3/0 | 0.0 |
 
 Router choices (criterion -> source, picked on dev):
 - app:claude-sonnet-5-5 + qwen_sc5: {'c1': 'app:claude-sonnet-5-5', 'c2': 'app:claude-sonnet-5-5', 'c3': 'app:claude-sonnet-5-5', 'c4': 'qwen_sc5', 'c5': 'qwen_sc5', 'c6': 'qwen_sc5', 'c7': 'app:claude-sonnet-5-5', 'c8': 'app:claude-sonnet-5-5'}
 - app:claude-sonnet-5-5 + app:local:Qwen3.5-35B-A3B-GPTQ-Int4: {'c1': 'app:claude-sonnet-5-5', 'c2': 'app:claude-sonnet-5-5', 'c3': 'app:claude-sonnet-5-5', 'c4': 'app:local:Qwen3.5-35B-A3B-GPTQ-Int4', 'c5': 'app:local:Qwen3.5-35B-A3B-GPTQ-Int4', 'c6': 'app:local:Qwen3.5-35B-A3B-GPTQ-Int4', 'c7': 'app:claude-sonnet-5-5', 'c8': 'app:claude-sonnet-5-5'}
 - app:claude-sonnet-5-5 + qwen_sc5 + haiku: {'c1': 'haiku', 'c2': 'app:claude-sonnet-5-5', 'c3': 'app:claude-sonnet-5-5', 'c4': 'qwen_sc5', 'c5': 'qwen_sc5', 'c6': 'qwen_sc5', 'c7': 'app:claude-sonnet-5-5', 'c8': 'app:claude-sonnet-5-5'}
 - app:claude-sonnet-5-5 + haiku + haiku_sub + qwen_sc5 + qwen_sub_sc5 + qwen + gemma: {'c1': 'haiku', 'c2': 'app:claude-sonnet-5-5', 'c3': 'app:claude-sonnet-5-5', 'c4': 'qwen_sc5', 'c5': 'qwen_sub_sc5', 'c6': 'gemma', 'c7': 'app:claude-sonnet-5-5', 'c8': 'app:claude-sonnet-5-5'}
-- qwen_sc5 + qwen_sub_sc5 + qwen + qwen_percrit + qwen_gloss + gemma + gemma_sc5: {'c1': 'qwen_sub_sc5', 'c2': 'gemma', 'c3': 'qwen_sub_sc5', 'c4': 'qwen_sc5', 'c5': 'qwen_sub_sc5', 'c6': 'gemma', 'c7': 'qwen_sc5', 'c8': 'qwen_sc5'}
-- haiku + haiku_sub + qwen_sc5 + qwen_sub_sc5 + gemma: {'c1': 'haiku', 'c2': 'gemma', 'c3': 'haiku', 'c4': 'qwen_sc5', 'c5': 'qwen_sub_sc5', 'c6': 'gemma', 'c7': 'haiku', 'c8': 'haiku'}
+- qwen_sc5 + qwen_sub_sc5 + qwen + qwen_percrit + qwen_gloss + gemma + gemma_sc5: {'c1': 'qwen_sub_sc5', 'c2': 'qwen_sc5', 'c3': 'qwen_sub_sc5', 'c4': 'qwen_sc5', 'c5': 'qwen_sub_sc5', 'c6': 'gemma', 'c7': 'qwen_sc5', 'c8': 'qwen_sc5'}
+- haiku + haiku_sub + qwen_sc5 + qwen_sub_sc5 + gemma: {'c1': 'haiku', 'c2': 'qwen_sc5', 'c3': 'haiku', 'c4': 'qwen_sc5', 'c5': 'qwen_sub_sc5', 'c6': 'gemma', 'c7': 'haiku', 'c8': 'haiku'}

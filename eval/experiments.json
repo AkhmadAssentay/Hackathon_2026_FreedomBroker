@@ -85,6 +85,92 @@
    "escalated_share": 0.0
   }
  },
+ "gemma": {
+  "dev": {
+   "n": 14,
+   "accuracy": 0.7857,
+   "per_criterion": {
+    "c1": 0.929,
+    "c2": 0.643,
+    "c3": 1.0,
+    "c4": 0.714,
+    "c5": 0.857,
+    "c6": 0.857,
+    "c7": 0.286,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.781,
+    "KZ": 0.85,
+    "RU": 0.75
+   },
+   "total_mae": 11.43,
+   "gross": {
+    "tp": 1,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  },
+  "test": {
+   "n": 30,
+   "accuracy": 0.6917,
+   "per_criterion": {
+    "c1": 0.9,
+    "c2": 0.6,
+    "c3": 0.833,
+    "c4": 0.567,
+    "c5": 0.733,
+    "c6": 0.567,
+    "c7": 0.433,
+    "c8": 0.9
+   },
+   "per_language": {
+    "CALL": 0.438,
+    "EN": 0.75,
+    "KZ": 0.696,
+    "RU": 0.692
+   },
+   "total_mae": 18.48,
+   "gross": {
+    "tp": 3,
+    "fn": 3,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  },
+  "all": {
+   "n": 44,
+   "accuracy": 0.7216,
+   "per_criterion": {
+    "c1": 0.909,
+    "c2": 0.614,
+    "c3": 0.886,
+    "c4": 0.614,
+    "c5": 0.773,
+    "c6": 0.659,
+    "c7": 0.386,
+    "c8": 0.932
+   },
+   "per_language": {
+    "CALL": 0.5,
+    "EN": 0.76,
+    "KZ": 0.76,
+    "RU": 0.706
+   },
+   "total_mae": 16.24,
+   "gross": {
+    "tp": 4,
+    "fn": 3,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  }
+ },
  "haiku": {
   "dev": {
    "n": 14,
@@ -1031,6 +1117,65 @@
    "escalated_share": 0.335
   }
  },
+ "_memory": {
+  "n_test_dialogues": 29,
+  "without_memory": {
+   "n": 29,
+   "accuracy": 0.9095,
+   "per_criterion": {
+    "c1": 1.0,
+    "c2": 0.966,
+    "c3": 1.0,
+    "c4": 0.759,
+    "c5": 0.966,
+    "c6": 0.724,
+    "c7": 0.862,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.906,
+    "KZ": 0.929,
+    "RU": 0.948
+   },
+   "total_mae": 3.76,
+   "gross": {
+    "tp": 6,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01483,
+   "escalated_share": 0.0
+  },
+  "with_memory": {
+   "n": 29,
+   "accuracy": 0.8707,
+   "per_criterion": {
+    "c1": 1.0,
+    "c2": 0.931,
+    "c3": 1.0,
+    "c4": 0.586,
+    "c5": 0.828,
+    "c6": 0.759,
+    "c7": 0.862,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.688,
+    "EN": 0.891,
+    "KZ": 0.893,
+    "RU": 0.875
+   },
+   "total_mae": 9.38,
+   "gross": {
+    "tp": 6,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0123,
+   "escalated_share": 0.0
+  }
+ },
  "_router_choices": {
   "app:claude-sonnet-5-5 + qwen_sc5": {
    "c1": "app:claude-sonnet-5-5",
@@ -1074,7 +1219,7 @@
   },
   "qwen_sc5 + qwen_sub_sc5 + qwen + qwen_percrit + qwen_gloss + gemma + gemma_sc5": {
    "c1": "qwen_sub_sc5",
-   "c2": "gemma",
+   "c2": "qwen_sc5",
    "c3": "qwen_sub_sc5",
    "c4": "qwen_sc5",
    "c5": "qwen_sub_sc5",
@@ -1084,7 +1229,7 @@
   },
   "haiku + haiku_sub + qwen_sc5 + qwen_sub_sc5 + gemma": {
    "c1": "haiku",
-   "c2": "gemma",
+   "c2": "qwen_sc5",
    "c3": "haiku",
    "c4": "qwen_sc5",
    "c5": "qwen_sub_sc5",

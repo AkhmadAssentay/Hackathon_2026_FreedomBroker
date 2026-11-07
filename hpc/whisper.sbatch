@@ -4,7 +4,7 @@
 #SBATCH -p ws-ia
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=12G
+#SBATCH --mem=28G
 #SBATCH --time=01:00:00
 #SBATCH -o /home/%u/cqa/logs/%x-%j.log
 set -euo pipefail

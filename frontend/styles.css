@@ -193,3 +193,12 @@ nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 60
 @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
 .dots { letter-spacing: 1px; color: #1baf7a; font-size: 10px; }
 .dots .off { color: #d9dfdb; }
+.audio-panel { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.ap-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 8px; align-items: center; }
+.ap-row:not(:has(.share)) { grid-template-columns: 90px 1fr; }
+.share { height: 8px; background: #eb6834; border-radius: 4px; overflow: hidden; }
+.share i { display: block; height: 100%; background: #2a78d6; }
+.insights { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); font-size: 13.5px; line-height: 1.45; }
+.insights .coach { margin-top: 6px; }
+.insights .coach ul { margin: 4px 0 0 18px; padding: 0; }
+.insights .coach.ok { color: var(--good); }

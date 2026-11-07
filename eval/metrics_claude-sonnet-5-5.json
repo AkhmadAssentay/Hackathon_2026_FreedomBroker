@@ -114,11 +114,11 @@
  "evidence_valid_first_pass": 0.943,
  "needs_review_share": 0.011,
  "cost": {
-  "usd_total": 0.8209,
-  "dialogues": 44,
-  "calls": 61,
-  "usd_per_dialogue": 0.0187,
-  "input_tokens": 76697,
-  "output_tokens": 59006
+  "usd_total": 1.4294,
+  "dialogues": 65,
+  "calls": 113,
+  "usd_per_dialogue": 0.022,
+  "input_tokens": 140837,
+  "output_tokens": 98521
  }
 }

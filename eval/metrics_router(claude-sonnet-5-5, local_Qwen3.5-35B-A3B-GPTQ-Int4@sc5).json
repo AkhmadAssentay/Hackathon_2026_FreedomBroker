@@ -1,0 +1,125 @@
+{
+ "model": "router(claude-sonnet-5-5, local:Qwen3.5-35B-A3B-GPTQ-Int4@sc5)",
+ "checklist_version": 1,
+ "n_dialogues": 44,
+ "n_labels": 352,
+ "overall_accuracy": 0.895,
+ "per_language_accuracy": {
+  "CALL": 0.667,
+  "EN": 0.927,
+  "KZ": 0.885,
+  "RU": 0.919
+ },
+ "per_criterion": [
+  {
+   "id": "c1",
+   "title": "Установление контакта",
+   "n": 44,
+   "accuracy": 0.977,
+   "kappa": 0.845,
+   "confusions": {
+    "no→yes": 1
+   }
+  },
+  {
+   "id": "c2",
+   "title": "Выявление потребности",
+   "n": 44,
+   "accuracy": 0.932,
+   "kappa": 0.871,
+   "confusions": {
+    "na→no": 2,
+    "na→yes": 1
+   }
+  },
+  {
+   "id": "c3",
+   "title": "Идентификация",
+   "n": 44,
+   "accuracy": 1.0,
+   "kappa": 1.0,
+   "confusions": {}
+  },
+  {
+   "id": "c4",
+   "title": "Корректная и полная консультация",
+   "n": 44,
+   "accuracy": 0.727,
+   "kappa": 0.378,
+   "confusions": {
+    "15→20": 4,
+    "20→10": 2,
+    "5→10": 2,
+    "10→20": 2
+   }
+  },
+  {
+   "id": "c5",
+   "title": "Эмпатия и клиентоориентированность",
+   "n": 44,
+   "accuracy": 0.886,
+   "kappa": 0.549,
+   "confusions": {
+    "no→yes": 3,
+    "yes→no": 2
+   }
+  },
+  {
+   "id": "c6",
+   "title": "Управление диалогом, скорость и грамотность",
+   "n": 44,
+   "accuracy": 0.727,
+   "kappa": 0.417,
+   "confusions": {
+    "7→10": 3,
+    "4→10": 2,
+    "4→7": 2,
+    "10→4": 1
+   }
+  },
+  {
+   "id": "c7",
+   "title": "Завершение",
+   "n": 44,
+   "accuracy": 0.909,
+   "kappa": 0.773,
+   "confusions": {
+    "yes→no": 3,
+    "na→no": 1
+   }
+  },
+  {
+   "id": "c8",
+   "title": "Грубые ошибки",
+   "n": 44,
+   "accuracy": 1.0,
+   "kappa": 1.0,
+   "confusions": {}
+  }
+ ],
+ "na": {
+  "precision": 1.0,
+  "recall": 0.939
+ },
+ "gross_error": {
+  "tp": 7,
+  "fp": 0,
+  "fn": 0
+ },
+ "binary_error_direction": {
+  "n": 154,
+  "false_pass": 4,
+  "false_fail": 5
+ },
+ "total_score_mae": 6.96,
+ "evidence_valid_first_pass": 0.946,
+ "needs_review_share": 0.017,
+ "cost": {
+  "usd_total": 0,
+  "dialogues": 0,
+  "calls": 0,
+  "usd_per_dialogue": null,
+  "input_tokens": null,
+  "output_tokens": null
+ }
+}

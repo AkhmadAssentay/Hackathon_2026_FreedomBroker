@@ -28,6 +28,7 @@
     }
     audioUrl(key) { return `${this.base}/api/audio/${encodeURIComponent(key)}`; }
     evaluation(id) { return this._req(`/api/evaluations/${id}`); }
+    insights(id) { return this._req(`/api/evaluations/${id}/insights`).catch(() => null); }
     evaluate(body) { return this._req("/api/evaluate", { method: "POST", body }); }
     job(id) { return this._req(`/api/jobs/${id}`); }
     checklists() { return this._req("/api/checklists"); }
@@ -48,6 +49,7 @@
       return this._req(`/api/analytics?${p}`);
     }
     peaks(key) { return this._req(`/api/audio/${encodeURIComponent(key)}/peaks`); }
+    audioAnalysis(key) { return this._req(`/api/audio/${encodeURIComponent(key)}/analysis`).catch(() => null); }
   }
   window.CQA = window.CQA || {};
   window.CQA.provider = new RestDataProvider();

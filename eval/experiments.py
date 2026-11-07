@@ -93,7 +93,47 @@ VARIANTS: dict[str, dict] = {
     "haiku_sub":       {"provider": "claude", "model": "claude-haiku-5-5", "sub": ["c2", "c3", "c7"]},
     "sonnet":          {"provider": "claude", "model": "claude-sonnet-5-5"},
     "sonnet_sub":      {"provider": "claude", "model": "claude-sonnet-5-5", "sub": ["c2", "c3", "c7"]},
+    # appeals-as-memory: precedents from reviewer decisions on dev errors, evaluated on test only
+    "qwen_sc5_mem":    {"provider": "local", "n": 5, "temperature": 0.7, "memory": True, "criteria": ["c4", "c5", "c6"], "partial": True},
+    "sonnet_mem":      {"provider": "claude", "model": "claude-sonnet-5-5", "memory": True, "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
 }
+
+MEMORY_PATH = RUNS / "memory.json"
+
+
+def build_memory(max_per_crit: int = 3) -> dict:
+    """Simulated appeal decisions: every router error on the dev half becomes a reviewer decision with
+    a one-sentence reason (written by the local model from the transcript and the correct answer)."""
+    if MEMORY_PATH.exists():
+        return json.loads(MEMORY_PATH.read_text())
+    choice = {"c1": "app:claude-sonnet-5-5", "c2": "app:claude-sonnet-5-5", "c3": "app:claude-sonnet-5-5",
+              "c4": "qwen_sc5", "c5": "qwen_sc5", "c6": "qwen_sc5", "c7": "app:claude-sonnet-5-5",
+              "c8": "app:claude-sonnet-5-5"}
+    runs = {n: load(n) for n in set(choice.values())}
+    crits = {c["id"]: c for c in service.get_checklist(1)["criteria"]}
+    prov = LocalProvider()
+    mem: dict[str, list[str]] = {k: [] for k in CRITS}
+    for cid in ids_for("dev"):
+        for k in CRITS:
+            r = runs[choice[k]].get(cid)
+            if not r or len(mem[k]) >= max_per_crit:
+                continue
+            pred, gold = r["results"][k]["answer"], GOLD[cid]["labels"][k]
+            if pred == gold:
+                continue
+            conv = service.get_conv(f"DEV:{cid}")
+            from backend.judge import render_transcript
+            prompt = (f"Критерий: {crits[k]['title']}. {crits[k]['description']}\n"
+                      f"Модель ответила «{pred}», проверяющий исправил на «{gold}».\n"
+                      f"Транскрипт:\n{render_transcript(conv)}\n\n"
+                      "Одним предложением на русском сформулируй причину решения проверяющего как общее правило "
+                      "для похожих случаев (без имён и номеров реплик).")
+            out = prov.complete("Ты старший специалист контроля качества.", prompt,
+                                {"type": "object", "properties": {"reason": {"type": "string"}}, "required": ["reason"],
+                                 "additionalProperties": False}, f"DEV:{cid}", "memory")
+            mem[k].append(f"Ответ модели «{pred}» исправлен на «{gold}»: {out['data']['reason']}")
+    MEMORY_PATH.write_text(json.dumps(mem, ensure_ascii=False, indent=1))
+    return mem
 
 
 def provider_for(cfg: dict):
@@ -151,6 +191,9 @@ def majority(answers: list[str], crit: dict) -> tuple[str, float]:
 def judge_one(cid: str, cfg: dict) -> dict:
     conv = service.get_conv(f"DEV:{cid}")
     cl = checklist(set(cfg.get("sub", [])))
+    if cfg.get("criteria"):
+        cl["criteria"] = [c for c in cl["criteria"] if c["id"] in cfg["criteria"]]
+    prec = build_memory() if cfg.get("memory") else {}
     crits = {c["id"]: c for c in cl["criteria"]}
     prov = provider_for(cfg)
     fx = facts(conv)
@@ -159,7 +202,7 @@ def judge_one(cid: str, cfg: dict) -> dict:
     per: dict[str, list[dict]] = {k: [] for k in crits}
     cost = 0.0
     for group in groups:
-        system, user = build_messages(shown, fx, group, {})
+        system, user = build_messages(shown, fx, group, prec)
         out = prov.complete(system, user, schema_for(group), conv["key"], "experiment")
         cost += out.get("cost_usd", 0.0)
         for sample in out.get("samples") or [out["data"]]:
@@ -391,7 +434,7 @@ def promote(combo: str) -> None:
 
 def report() -> dict:
     rows = {}
-    names = list(VARIANTS) + ["app:local:Qwen3.5-35B-A3B-GPTQ-Int4", "app:claude-sonnet-5-5"]
+    names = [v for v in VARIANTS if not VARIANTS[v].get("partial")] + ["app:local:Qwen3.5-35B-A3B-GPTQ-Int4", "app:claude-sonnet-5-5"]
     for n in names:
         r = load(n)
         if r and len(r) >= len(GOLD):  # only complete runs are compared
@@ -403,6 +446,15 @@ def report() -> dict:
             continue
         if r and len(r) >= len(GOLD):
             rows[n] = {s: metrics(r, s) for s in ("dev", "test", "all")}
+    sm, qm = load("sonnet_mem"), load("qwen_sc5_mem")
+    if sm and qm:  # appeals-as-memory: router with precedents vs without, on the test half only
+        base = combine_router(["app:claude-sonnet-5-5", "qwen_sc5"])
+        both = sorted(set(sm) & set(qm) & set(base) & set(ids_for("test")))
+        merged = {cid: {"cid": cid, "cost_usd": sm[cid].get("cost_usd", 0),
+                        "results": {**sm[cid]["results"], **qm[cid]["results"]}} for cid in both}
+        rows["_memory"] = {"n_test_dialogues": len(both),
+                           "without_memory": metrics({c: base[c] for c in both}, "test"),
+                           "with_memory": metrics(merged, "test")}
     rows["_router_choices"] = ROUTER_CHOICES
     prod = ROUTER_CHOICES.get(" + ".join(["app:claude-sonnet-5-5", "qwen_sc5"])) or next(iter(ROUTER_CHOICES.values()), None)
     if prod:

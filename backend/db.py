@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS appeals (
   comment TEXT, author TEXT, created_at REAL, status TEXT DEFAULT 'open',
   decision TEXT, new_answer TEXT, reason TEXT, reviewer TEXT, decided_at REAL
 );
+CREATE TABLE IF NOT EXISTS insights (
+  evaluation_id INTEGER PRIMARY KEY, json TEXT, created_at REAL
+);
 CREATE TABLE IF NOT EXISTS api_calls (
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, provider TEXT, model TEXT,
   input_tokens INTEGER, output_tokens INTEGER, cache_read INTEGER, cache_write INTEGER,

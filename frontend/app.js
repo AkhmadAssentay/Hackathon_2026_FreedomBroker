@@ -234,16 +234,42 @@
       const G = window.CQA.charts;
       this.querySelectorAll("[data-gauge]").forEach((g) => G.gauge(g, g.dataset.gauge === "" ? null : +g.dataset.gauge));
       G.delays(this.querySelector("#delays"), c.turns, { onPick: (i) => this.focusTurn(i, true) });
+      if (ev) P().insights(ev.id).then((ins) => {
+        const box = this.querySelector("#insights");
+        if (!box) return;
+        if (!ins) { box.remove(); return; }
+        box.innerHTML = `${ins.summary ? `<div class="sum"><b>Суть:</b> ${esc(ins.summary)}</div>` : ""}
+          ${ins.coaching && ins.coaching.length ? `<div class="coach"><b>Советы оператору</b><ul>${ins.coaching.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>` : `<div class="coach ok">Замечаний к оператору нет.</div>`}`;
+      });
       if (isCall && c.audio_url) {
         const marks = {};
         if (ev) Object.entries(ev.results).forEach(([cid, r]) => (r.evidence || []).forEach((e) => {
           const cr = ev.checklist.criteria.find((x) => x.id === cid);
           marks[e.turn] = (marks[e.turn] ? marks[e.turn] + "; " : "") + (cr ? cr.title : cid);
         }));
-        P().peaks(this.key).then((pk) => {
+        Promise.all([P().peaks(this.key), P().audioAnalysis(this.key)]).then(([pk, an]) => {
+          if (an && an.aligned) {  // exact times from Whisper word alignment replace the estimate
+            c.turns.forEach((t) => { const a = an.aligned[String(t.i)]; if (a) { t.audio_t = a.start; t.aligned = true; } });
+            this.renderAudioPanel(an);
+          }
           this.wave = G.waveform(this.querySelector("#wave"), pk.peaks, pk.duration, c.turns, { marks, onSeek: (sec) => this.seek(sec + 1) });
         }).catch((e) => { this.querySelector("#wave").innerHTML = `<span class="muted small">Волна недоступна: ${esc(e.message)}</span>`; });
       }
+    }
+    renderAudioPanel(an) {
+      const host = this.querySelector(".player");
+      if (!host || host.querySelector(".audio-panel")) return;
+      const share = an.operator_talk_share;
+      const mm = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+      const r = an.speech_rate_wpm || {};
+      host.insertAdjacentHTML("beforeend", `<div class="audio-panel">
+        <div class="ap-row"><span class="muted small">Доля речи</span>
+          <div class="share"><i style="width:${Math.round((share || 0) * 100)}%" title="оператор"></i></div>
+          <span class="small">оператор ${Math.round((share || 0) * 100)}% · клиент ${Math.round((1 - (share || 0)) * 100)}%</span></div>
+        <div class="ap-row"><span class="muted small">Темп речи</span><span class="small">оператор ${r.operator ?? "—"} сл/мин · клиент ${r.client ?? "—"} сл/мин</span></div>
+        <div class="ap-row"><span class="muted small">Паузы</span><span class="small">${(an.longest_silences || []).map((g) => `<a href="#" data-seek="${g.at}">${g.seconds} с в ${mm(g.at)}</a>`).join(" · ")}</span></div>
+        <div class="muted small">Время реплик выровнено по словам записи (Whisper, ${an.aligned_turns} реплик)${an.timestamp_estimate_error_sec != null ? `; оценка по системным меткам ошибалась в среднем на ${an.timestamp_estimate_error_sec} с` : ""}.</div>
+      </div>`);
     }
     turnHtml(t, isCall) {
       const time = isCall ? (t.t != null ? new Date(t.t * 1000).toISOString().substr(14, 5) : "") : t.timestamp;
@@ -270,6 +296,7 @@
             <div class="muted small">Чек-лист v${ev.checklist_version} · ${esc(ev.model.startsWith("router") ? "маршрутизатор Sonnet + Qwen" : modelLabel(ev.model))} · оценка #${ev.id}${ev.cost_usd ? ` · $${ev.cost_usd.toFixed(4)}` : ""}</div>
           </div>
         </div>
+        <div class="insights" id="insights"><span class="muted small">Готовим краткое содержание и советы оператору…</span></div>
         <div class="crits">${cl.criteria.map((c) => this.critHtml(c, ev)).join("")}</div>`;
     }
     critHtml(c, ev) {
@@ -315,7 +342,7 @@
       if (!a) return;
       if (a.dataset.turn !== undefined) { e.preventDefault(); history.replaceState(null, "", a.getAttribute("href")); this.focusTurn(+a.dataset.turn, true); }
       else if (a.dataset.range) { e.preventDefault(); const [x, y] = a.dataset.range.split("-").map(Number); this.focusRange(x, y); }
-      else if (a.dataset.seek) { this.seek(+a.dataset.seek); }
+      else if (a.dataset.seek) { e.preventDefault(); this.seek(+a.dataset.seek); }
       else if (a.dataset.appeal) { this.querySelector(`[data-form="${a.dataset.appeal}"]`).classList.remove("hidden"); }
       else if (a.dataset.cancel) { this.querySelector(`[data-form="${a.dataset.cancel}"]`).classList.add("hidden"); }
     };
