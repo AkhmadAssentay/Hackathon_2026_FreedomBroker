@@ -60,7 +60,7 @@ async function evaluate(record, checklist) {
   } else {
     const prompt = buildPrompt({ checklist, record, msgs, facts });
     const r = await llm.complete(prompt);
-    meta = { provider: r.provider, model: r.model, usage: r.usage, cost_usd: r.cost_usd };
+    meta = { provider: r.provider, model: r.model, usage: r.usage, cost_usd: r.cost_usd, ...(r.fallback_from ? { fallback_from: r.fallback_from } : {}) };
     verdicts = toVerdicts(r.json, checklist, msgs, facts);
     // Second opinion from a model of another family (PoLL / multilingual-judge ensembles). Where the two
     // disagree, the criterion is flagged for human review; the primary model's answer stays in the score.

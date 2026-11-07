@@ -422,7 +422,7 @@
             <div><b>Итоговый балл</b> ${ev.status === 'reviewed' ? '<span class="badge b-changed">после пересмотра</span>' : ev.status === 'appealed' ? '<span class="badge b-open">апелляция открыта</span>' : ''}</div>
             ${changed ? `<div class="small">Исходная оценка: <b>${orig.total}</b> → финальная: <b>${res.total}</b></div>` : ''}
             <div class="small muted">Чек-лист <span class="mono">${esc(ev.checklist_uid)}</span> · ${new Date(ev.created_at).toLocaleString()}</div>
-            <div class="small muted">${meta.provider === 'rules' ? 'Эвристика без LLM' : esc((meta.provider || '') + ' · ' + (meta.model || ''))}${meta.usage ? ` · токены ${meta.usage.input}+${meta.usage.output}` : ''}${meta.cost_usd ? ` · $${meta.cost_usd.toFixed(4)}` : ''}${meta.duration_ms ? ` · ${(meta.duration_ms / 1000).toFixed(1)} с` : ''}</div>
+            <div class="small muted">${meta.provider === 'rules' ? 'Эвристика без LLM' : esc((meta.provider || '') + ' · ' + (meta.model || ''))}${meta.fallback_from ? ` <span title="Основная модель была на лимите">(резервная вместо ${esc(meta.fallback_from)})</span>` : ''}${meta.usage ? ` · токены ${meta.usage.input}+${meta.usage.output}` : ''}${meta.cost_usd ? ` · $${meta.cost_usd.toFixed(4)}` : ''}${meta.duration_ms ? ` · ${(meta.duration_ms / 1000).toFixed(1)} с` : ''}</div>
           </div>
         </div>
         ${res.total === null ? '<div class="warn">Нет применимых критериев с весом — итог не рассчитывается.</div>' : ''}

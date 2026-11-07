@@ -15,6 +15,7 @@ const DEFAULT_MODELS = {
 const DEFAULT_PRICES = {
   'groq:openai/gpt-oss-120b': [0.15, 0.6],
   'groq:openai/gpt-oss-20b': [0.075, 0.3],
+  'groq:qwen/qwen3.8-27b': [0.8, 4.0],
 };
 
 // Fallback models: each hosted model has its own rate-limit quota, so when one runs out (tokens per
