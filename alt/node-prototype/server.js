@@ -132,6 +132,7 @@ function summarize(rec, ev, openAppeals) {
     status: ev ? ev.status || 'evaluated' : 'not_evaluated',
     open_appeals: openAppeals || 0,
     error: ev ? ev.error || null : null,
+    evaluated_at: ev ? ev.created_at || null : null,
   };
 }
 
@@ -148,7 +149,12 @@ function recompute(ev) {
   return score(ev.checklist, verdicts);
 }
 
-async function runEvaluation(record, groupId, checklist) {
+async function runEvaluation(record, groupId, fullChecklist) {
+  // Criteria switched off in the checklist settings (active === false) do not take part in the
+  // evaluation; the weights of the remaining ones are scored as usual (N/A redistribution, max 100).
+  const checklist = fullChecklist.criteria.some((c) => c.active === false)
+    ? { ...fullChecklist, criteria: fullChecklist.criteria.filter((c) => c.active !== false) }
+    : fullChecklist;
   try {
     const out = await evaluate(record, checklist);
     return await store.addEvaluation({
