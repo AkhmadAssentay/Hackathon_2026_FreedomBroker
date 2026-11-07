@@ -165,9 +165,15 @@ async function complete(prompt, { model } = {}) {
   let lastErr;
   let soonest = null; // earliest moment any model frees up, for the caller's retry hint
   const skipped = [];
+  const reasons = []; // per-model reason, shown to the user when every model is unavailable
   for (const m of models) {
     const until = exhausted.get(m);
-    if (until && until > Date.now() && models.length > 1) { skipped.push(m); soonest = Math.min(soonest ?? until, until); continue; }
+    if (until && until > Date.now() && models.length > 1) {
+      skipped.push(m);
+      soonest = Math.min(soonest ?? until, until);
+      reasons.push(`${m}: лимит, освободится через ${Math.ceil((until - Date.now()) / 1000)} с`);
+      continue;
+    }
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const r = await fn(prompt, m);
@@ -185,26 +191,36 @@ async function complete(prompt, { model } = {}) {
         // Out of quota (long wait) or request too large for this model's limit: move on to the next model.
         const quotaGone = e.status === 413 || (e.status === 429 && (e.retryAfterSec || 0) * 1000 > waitBudgetMs);
         if (quotaGone) {
+          reasons.push(`${m}: ${e.status === 413 ? 'запрос больше лимита модели' : `лимит, повтор через ${e.retryAfterSec} с`} (${String(e.message).replace(/^LLM HTTP \d+: /, '').slice(0, 160)})`);
           const freeAt = Date.now() + (e.retryAfterSec ? e.retryAfterSec * 1000 : 60000);
           exhausted.set(m, freeAt);
           soonest = Math.min(soonest ?? freeAt, freeAt);
           skipped.push(m);
           break;
         }
-        if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) throw e; // bad request / auth: not a quota problem
-        if (e.status === 429 && Date.now() - started + waitMs > waitBudgetMs) { soonest = Math.min(soonest ?? Date.now() + waitMs, Date.now() + waitMs); break; }
+        if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) {
+          // bad request / auth on this model: try the next one, report if none works
+          reasons.push(`${m}: HTTP ${e.status} ${String(e.message).replace(/^LLM HTTP \d+: /, '').slice(0, 160)}`);
+          break;
+        }
+        if (e.status === 429 && Date.now() - started + waitMs > waitBudgetMs) {
+          reasons.push(`${m}: лимит в минуту, повтор через ${Math.ceil(waitMs / 1000)} с`);
+          soonest = Math.min(soonest ?? Date.now() + waitMs, Date.now() + waitMs);
+          break;
+        }
         await new Promise((res) => setTimeout(res, waitMs));
       }
     }
   }
-  // Every model is rate-limited right now: tell the caller when to come back.
-  if (lastErr && (lastErr.status === 429 || lastErr.status === 413 || skipped.length)) {
-    throw Object.assign(new Error(`Лимит модели исчерпан (${[...new Set(skipped.length ? skipped : models)].join(', ')})`), {
+  // Every model is rate-limited right now: tell the caller when to come back, and why.
+  if (soonest !== null) {
+    throw Object.assign(new Error(`Все модели сейчас недоступны по лимиту: ${reasons.join('; ')}`), {
       status: 429,
-      retryAfterSec: soonest ? Math.max(5, Math.ceil((soonest - Date.now()) / 1000)) : 30,
+      retryAfterSec: Math.max(5, Math.ceil((soonest - Date.now()) / 1000)),
     });
   }
-  throw lastErr || new Error('Модель не ответила');
+  if (lastErr) throw Object.assign(new Error(reasons.length ? `Модель не ответила: ${reasons.join('; ')}` : lastErr.message), { status: lastErr.status });
+  throw new Error('Модель не ответила');
 }
 
 module.exports = { complete, config, extractJson, isLocal };

@@ -165,7 +165,7 @@ async function runEvaluation(record, groupId, checklist) {
     });
   } catch (e) {
     // A rate limit is not an evaluation result: report it so the caller can retry later.
-    if (e.status === 429) throw Object.assign(new Error('Лимит запросов модели исчерпан, повторите позже'), { status: 429, retryAfterSec: e.retryAfterSec || 20 });
+    if (e.status === 429) throw Object.assign(new Error(e.message || 'Лимит запросов модели исчерпан, повторите позже'), { status: 429, retryAfterSec: e.retryAfterSec || 20 });
     return await store.addEvaluation({
       conversation_id: record.conversation_id,
       group_id: groupId,
