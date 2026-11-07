@@ -3,11 +3,11 @@
  "checklist_version": 1,
  "n_dialogues": 33,
  "n_labels": 264,
- "overall_accuracy": 0.818,
+ "overall_accuracy": 0.86,
  "per_language_accuracy": {
-  "EN": 0.775,
-  "KZ": 0.861,
-  "RU": 0.821
+  "EN": 0.838,
+  "KZ": 0.889,
+  "RU": 0.857
  },
  "per_criterion": [
   {
@@ -22,23 +22,20 @@
    "id": "c2",
    "title": "Выявление потребности",
    "n": 33,
-   "accuracy": 0.606,
-   "kappa": 0.378,
+   "accuracy": 0.788,
+   "kappa": 0.613,
    "confusions": {
-    "na→yes": 10,
-    "na→no": 2,
-    "yes→no": 1
+    "na→yes": 7
    }
   },
   {
    "id": "c3",
    "title": "Идентификация",
    "n": 33,
-   "accuracy": 0.879,
-   "kappa": 0.664,
+   "accuracy": 0.939,
+   "kappa": 0.807,
    "confusions": {
-    "na→no": 3,
-    "na→yes": 1
+    "na→no": 2
    }
   },
   {
@@ -46,47 +43,46 @@
    "title": "Корректная и полная консультация",
    "n": 33,
    "accuracy": 0.818,
-   "kappa": 0.393,
+   "kappa": 0.34,
    "confusions": {
+    "10→20": 2,
     "10→5": 1,
-    "10→20": 1,
     "5→10": 1,
-    "10→15": 1
+    "15→20": 1
    }
   },
   {
    "id": "c5",
    "title": "Эмпатия и клиентоориентированность",
    "n": 33,
-   "accuracy": 0.939,
-   "kappa": 0.633,
+   "accuracy": 0.879,
+   "kappa": 0.436,
    "confusions": {
-    "no→yes": 1,
-    "yes→no": 1
+    "yes→no": 3,
+    "no→yes": 1
    }
   },
   {
    "id": "c6",
    "title": "Управление диалогом, скорость и грамотность",
    "n": 33,
-   "accuracy": 0.606,
-   "kappa": 0.103,
+   "accuracy": 0.788,
+   "kappa": 0.449,
    "confusions": {
-    "4→7": 4,
     "7→10": 3,
-    "10→7": 3,
-    "10→0": 1
+    "4→7": 2,
+    "10→0": 2
    }
   },
   {
    "id": "c7",
    "title": "Завершение",
    "n": 33,
-   "accuracy": 0.697,
-   "kappa": 0.402,
+   "accuracy": 0.667,
+   "kappa": 0.403,
    "confusions": {
-    "no→yes": 8,
-    "na→no": 2
+    "no→yes": 10,
+    "na→no": 1
    }
   },
   {
@@ -100,7 +96,7 @@
  ],
  "na": {
   "precision": 1.0,
-  "recall": 0.66
+  "recall": 0.811
  },
  "gross_error": {
   "tp": 4,
@@ -109,18 +105,18 @@
  },
  "binary_error_direction": {
   "n": 112,
-  "false_pass": 9,
-  "false_fail": 2
+  "false_pass": 11,
+  "false_fail": 3
  },
- "total_score_mae": 8.89,
- "evidence_valid_first_pass": 0.883,
- "needs_review_share": 0.008,
+ "total_score_mae": 10.62,
+ "evidence_valid_first_pass": 0.864,
+ "needs_review_share": 0.004,
  "cost": {
   "usd_total": 0,
   "dialogues": 65,
-  "calls": 186,
+  "calls": 495,
   "usd_per_dialogue": 0.0,
-  "input_tokens": 397842,
-  "output_tokens": 127390
+  "input_tokens": 1047718,
+  "output_tokens": 332067
  }
 }

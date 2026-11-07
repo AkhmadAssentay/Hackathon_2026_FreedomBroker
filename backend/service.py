@@ -11,7 +11,8 @@ from typing import Any
 
 from . import budget, db
 from .datasource import ROOT, facts, fetch_group, normalise, transcript_hash
-from .judge import build_messages, criterion_hash, get_provider, schema_for, validate
+from .judge import (build_messages, criterion_hash, get_provider, needs_russian, schema_for,
+                    translate_to_russian, validate)
 from .scoring import allowed_answers, score
 
 # ------------------------------------------------------------------ checklists
@@ -178,6 +179,23 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
             except Exception as e:  # keep the first answer, flagged
                 for c in failed:
                     errs_by[c["id"]].append(f"repair failed: {e}")
+        # language guard: explanations must be Russian whatever the dialogue language
+        foreign = {cid: r for cid, r in fresh.items()
+                   if needs_russian(r.get("explanation", "")) or needs_russian(r.get("na_reason", ""))}
+        if foreign:
+            try:
+                tr, tr_cost = translate_to_russian(prov, foreign, key)
+                total_cost += tr_cost
+                for cid, t in tr.items():
+                    if t.get("explanation") and not needs_russian(t["explanation"]):
+                        fresh[cid]["explanation"] = t["explanation"]
+                        fresh[cid]["na_reason"] = t.get("na_reason") or fresh[cid].get("na_reason", "")
+                        fresh[cid]["translated"] = True
+            except budget.BudgetExceeded:
+                raise
+            except Exception as e:
+                for cid in foreign:
+                    fresh[cid].setdefault("validator_notes", []).append(f"перевод не удался: {e}")
         share = total_cost / max(1, len(missing))
         for c in missing:
             r = fresh[c["id"]]

@@ -19,6 +19,8 @@ import httpx
 from . import budget
 from .scoring import allowed_answers
 
+PROMPT_VERSION = "p4"  # part of the cache key: bump when prompt wording changes
+
 SYSTEM = """You are a quality-assurance auditor for Freedom Broker customer support (a securities brokerage).
 You evaluate ONLY the human operator (speaker = operator). Bot and system turns are context: system events
 (escalation to an operator, identity verified, chat closed, connection lost, recording paused) are facts you may cite.
@@ -36,10 +38,11 @@ Evidence rules (checked by code — invalid citations are rejected):
   expected_turn = the turn where the action was expected (e.g. the operator's first reply for a missing greeting).
   Cite the closest relevant turn as evidence when one exists.
 - For answers other than "no", set checked_span to [] and expected_turn to -1.
-- "na": na_reason states which N/A condition holds; otherwise na_reason is "".
+- "na": na_reason_ru states which N/A condition holds; otherwise na_reason_ru is "".
 - For a gross-error criterion "yes" means a violation EXISTS; "no" means none of the listed violations occurred
   (then checked_span covers the operator part of the dialogue and expected_turn is -1).
-- explanation: 1–2 sentences IN RUSSIAN, e.g. «Завершение — Нет. После ответа на вопрос оператор закрыл чат без прощания.
+- explanation_ru and na_reason_ru: ALWAYS IN RUSSIAN, also for Kazakh and English dialogues (only quotes stay in the
+  original language). 1–2 sentences, e.g. «Завершение — Нет. После ответа на вопрос оператор закрыл чат без прощания.
   Основание — последняя реплика оператора и сообщение о закрытии чата.»
 - confidence: high if the transcript is unambiguous, medium if a reasonable reviewer could disagree, low if unsure.
 """
@@ -86,7 +89,7 @@ def _mmss(sec):
 def criterion_hash(c: dict, precedents: list[str]) -> str:
     keep = {k: c.get(k) for k in ("id", "title", "type", "weight", "na_allowed", "gross",
                                   "description", "na_condition", "scale", "guidelines")}
-    s = json.dumps([keep, precedents], ensure_ascii=False, sort_keys=True)
+    s = json.dumps([PROMPT_VERSION, keep, precedents], ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(s.encode()).hexdigest()[:16]
 
 
@@ -102,12 +105,12 @@ def schema_for(criteria: list[dict]) -> dict:
                     "required": ["turn", "quote"], "additionalProperties": False}},
                 "checked_span": {"type": "array", "items": {"type": "integer"}},
                 "expected_turn": {"type": "integer"},
-                "na_reason": {"type": "string"},
-                "explanation": {"type": "string"},
+                "na_reason_ru": {"type": "string", "description": "на русском языке"},
+                "explanation_ru": {"type": "string", "description": "1–2 предложения на русском языке"},
                 "answer": {"type": "string", "enum": allowed_answers(c)},
                 "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
             },
-            "required": ["evidence", "checked_span", "expected_turn", "na_reason", "explanation",
+            "required": ["evidence", "checked_span", "expected_turn", "na_reason_ru", "explanation_ru",
                          "answer", "confidence"],
             "additionalProperties": False,
         }
@@ -122,7 +125,8 @@ def build_messages(conv: dict, facts: dict, criteria: list[dict], precedents: di
     user = ("## Facts computed from timestamps (reliable)\n" + json.dumps(facts, ensure_ascii=False, indent=1)
             + f"\n\n## Transcript ({conv['conversation_id']}, {conv['channel']}, {conv['language']})\n"
             + render_transcript(conv)
-            + "\n\nEvaluate the operator on every criterion above. Return JSON only.")
+            + "\n\nEvaluate the operator on every criterion above. Write every explanation_ru and na_reason_ru in Russian "
+              "(даже если диалог на казахском или английском); quotes stay verbatim. Return JSON only.")
     if repair_note:
         user += "\n\n## Your previous answer failed validation — fix exactly these problems:\n" + repair_note
     return system, user
@@ -250,6 +254,9 @@ def quote_matches(quote: str, text: str) -> bool:
 
 def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
     """Check (and where safe, repair) one criterion result. Returns (result, errors)."""
+    for k in ("explanation", "na_reason"):
+        if f"{k}_ru" in res:
+            res[k] = res.pop(f"{k}_ru")
     turns = conv["turns"]
     n = len(turns)
     errs: list[str] = []
@@ -292,3 +299,36 @@ def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
 
     res["validator_notes"] = notes
     return res, errs
+
+
+# ------------------------------------------------------------------ language guard
+
+_KZ = re.compile(r"[әғқңөұүһі]", re.I)
+
+
+def needs_russian(text: str) -> bool:
+    """True if the text (outside «quotes») is Kazakh or mostly Latin, i.e. not Russian."""
+    t = re.sub(r"«[^»]*»|\"[^\"]*\"", " ", text or "")
+    if _KZ.search(t):
+        return True
+    lat, cyr = len(re.findall(r"[a-z]", t, re.I)), len(re.findall(r"[а-яё]", t, re.I))
+    return lat > 40 and lat > cyr
+
+
+TRANSLATE_SYSTEM = ("Ты переводчик. Переведи каждое поле на русский язык. Цитаты в кавычках «…», номера реплик "
+                    "(t5), названия разделов приложения и тикеры оставь без изменений. Сохраняй смысл, ничего не добавляй.")
+
+
+def translate_to_russian(prov: "Provider", items: dict[str, dict], conv_id: str) -> dict[str, dict]:
+    """items: cid -> {explanation, na_reason}. Returns the same shape in Russian."""
+    props = {cid: {"type": "object",
+                   "properties": {"explanation_ru": {"type": "string"}, "na_reason_ru": {"type": "string"}},
+                   "required": ["explanation_ru", "na_reason_ru"], "additionalProperties": False}
+             for cid in items}
+    schema = {"type": "object", "properties": props, "required": list(items), "additionalProperties": False}
+    user = "Переведи на русский язык:\n" + json.dumps(
+        {cid: {"explanation": v.get("explanation", ""), "na_reason": v.get("na_reason", "")} for cid, v in items.items()},
+        ensure_ascii=False, indent=1)
+    out = prov.complete(TRANSLATE_SYSTEM, user, schema, conv_id, "translate")
+    return {cid: {"explanation": d.get("explanation_ru", ""), "na_reason": d.get("na_reason_ru", "")}
+            for cid, d in out["data"].items()}, out["cost_usd"]

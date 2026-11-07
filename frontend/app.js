@@ -69,7 +69,13 @@
       this.querySelector("#load").onclick = () => this.loadGroup();
       window.addEventListener("hashchange", () => this.render());
       this.refreshGroups().then(() => this.render(true));
-      P().health().then((h) => (store.health = h)).catch(() => {});
+      P().health().then((h) => {
+        store.health = h;
+        if (!h.has_claude_key && store.provider === "claude") {
+          store.provider = "local"; this.querySelector("#provider").value = "local";
+          this.querySelector("#provider option[value=claude]").textContent = "Claude API (нет ключа)";
+        }
+      }).catch(() => {});
       this.refreshAppealCount();
       window.CQA.refreshAppealCount = () => this.refreshAppealCount();
     }
@@ -409,7 +415,7 @@
             <label>Версия <select id="ver">${this.versions.map((v) => `<option value="${v.version}" ${v.version === cl.version ? "selected" : ""}>v${v.version} — ${esc(v.note || v.name)}</option>`).join("")}</select></label>
           </div>
           <div class="cl-top">
-            <label>Название <input id="cl-name" value="${esc(cl.name)}"></label>
+            <label>Название <input id="cl-name" size="32" value="${esc(cl.name)}"></label>
             <label>Грубая ошибка <select id="cl-gross"><option value="flag">отмечается отдельно</option><option value="zero_total">обнуляет итог</option></select></label>
             <label>Округление итога <input id="cl-round" type="number" min="0" max="4" value="${cl.rounding ?? 2}"></label>
           </div>
@@ -441,11 +447,14 @@
           <label><input name="gross" type="checkbox" ${c.gross ? "checked" : ""}> грубая</label>
           <button type="button" class="ghost small" data-del="${i}" title="Удалить критерий">✕</button>
         </div>
-        <textarea name="description" rows="2" placeholder="Формулировка: когда «Да»">${esc(c.description)}</textarea>
-        <input name="na_condition" value="${esc(c.na_condition || "")}" placeholder="Условие N/A">
+        <label class="fl">Формулировка (когда «Да»)</label>
+        <textarea name="description" rows="2" placeholder="Да — оператор …">${esc(c.description)}</textarea>
+        <label class="fl">Условие N/A${c.na_allowed ? "" : " (N/A не разрешён)"}</label>
+        <input name="na_condition" value="${esc(c.na_condition || "")}" placeholder="Когда критерий неприменим">
         ${c.type === "scale" ? `<div class="scale">${(c.scale || []).map((s, j) => `<div class="srow" data-j="${j}"><input name="sv" type="number" value="${s.value}" class="w-n"><input name="sl" value="${esc(s.label)}" class="grow"><button type="button" class="ghost small" data-sdel="${i}:${j}">✕</button></div>`).join("")}
           <button type="button" class="ghost small" data-sadd="${i}">+ ступень</button></div>` : ""}
-        <textarea name="guidelines" rows="2" placeholder="Пояснения для оценщика — по одному в строке">${esc((c.guidelines || []).join("\n"))}</textarea>
+        <label class="fl">Пояснения для оценщика (по одному в строке)</label>
+        <textarea name="guidelines" rows="3" placeholder="Например: общие вопросы о тарифах не требуют идентификации">${esc((c.guidelines || []).join("\n"))}</textarea>
       </fieldset>`;
     }
     onClick = (e) => {

@@ -156,3 +156,5 @@ nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 60
   .scorebox { flex-direction: column; }
   .controls { margin-left: 0; }
 }
+.fl { font-size: 11.5px; color: var(--muted); margin-bottom: -3px; }
+.cform > .fl { display: block; }
