@@ -1,0 +1,15 @@
+{
+  "name": "cqa-freedom",
+  "version": "0.1.0",
+  "description": "Conversation Quality Analytics prototype — Freedom Broker Datathon Fall 2026",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "gold": "node scripts/gold_report.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
