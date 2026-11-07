@@ -2,6 +2,28 @@
 
 Reference: `eval/gold_labels.json` (44 DEV dialogues × 8 criteria: 41 chats + 3 calls; two independent labelings agree 91.7% on their overlap). Accuracy = exact match of the answer (yes/no/N/A/scale step).
 
+## claude-sonnet-5-5
+
+- dialogues: 44, labels: 352, **overall accuracy 86.9%**
+- by language: CALL 75.0%, EN 92.7%, KZ 85.4%, RU 86.0%
+- total score mean abs. error: 8.88 points
+- N/A precision 1.0, recall 0.939
+- gross errors: found 7, missed 0, false alarms 0
+- binary errors: false pass 1, false fail 9 (of 154)
+- evidence valid on first pass: 0.943; flagged for review: 0.011
+- cost: $0.8209 for 44 dialogues (≈ $0.0187 per dialogue, 61 calls)
+
+| criterion | n | accuracy | kappa | main confusions (gold→model) |
+|---|---|---|---|---|
+| c1 Установление контакта | 44 | 98% | 0.845 | no→yes×1 |
+| c2 Выявление потребности | 44 | 93% | 0.871 | na→no×2, na→yes×1 |
+| c3 Идентификация | 44 | 100% | 1.0 |  |
+| c4 Корректная и полная консультация | 44 | 66% | 0.486 | 20→15×12, 15→10×1, 20→5×1, 10→5×1 |
+| c5 Эмпатия и клиентоориентированность | 44 | 86% | 0.622 | yes→no×6 |
+| c6 Управление диалогом, скорость и грамотность | 44 | 61% | 0.379 | 10→7×10, 7→4×4, 4→7×1, 4→0×1 |
+| c7 Завершение | 44 | 91% | 0.773 | yes→no×3, na→no×1 |
+| c8 Грубые ошибки | 44 | 100% | 1.0 |  |
+
 ## local:Qwen3.5-35B-A3B-GPTQ-Int4
 
 - dialogues: 44, labels: 352, **overall accuracy 83.2%**
@@ -11,7 +33,7 @@ Reference: `eval/gold_labels.json` (44 DEV dialogues × 8 criteria: 41 chats + 3
 - gross errors: found 6, missed 1, false alarms 0
 - binary errors: false pass 15, false fail 3 (of 154)
 - evidence valid on first pass: 0.852; flagged for review: 0.0
-- cost: $0 for 65 dialogues (≈ $0.0 per dialogue, 614 calls)
+- cost: $0 for 65 dialogues (≈ $0.0 per dialogue, 623 calls)
 
 | criterion | n | accuracy | kappa | main confusions (gold→model) |
 |---|---|---|---|---|

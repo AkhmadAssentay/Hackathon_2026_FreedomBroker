@@ -40,6 +40,14 @@
     decide(id, body) { return this._req(`/api/appeals/${id}/decision`, { method: "POST", body }); }
     budget() { return this._req("/api/budget"); }
     metrics() { return this._req("/metrics.json").catch(() => null); }
+    experiments() { return this._req("/experiments.json").catch(() => null); }
+    analytics(group, version) {
+      const p = new URLSearchParams();
+      if (group) p.set("group_id", group);
+      if (version) p.set("version", version);
+      return this._req(`/api/analytics?${p}`);
+    }
+    peaks(key) { return this._req(`/api/audio/${encodeURIComponent(key)}/peaks`); }
   }
   window.CQA = window.CQA || {};
   window.CQA.provider = new RestDataProvider();

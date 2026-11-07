@@ -4,7 +4,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = (x, d = 2) => (x === null || x === undefined ? "—" : Number(x).toFixed(d).replace(/\.00$/, ""));
   const SPK = { client: "Клиент", operator: "Оператор", bot: "Бот", system: "Система", internal: "Оператор ↔ коллега" };
-  const store = { group: localGet("group") || "DEV", provider: localGet("provider") || "claude", health: null };
+  const store = { group: localGet("group") || "DEV", provider: localGet("provider") || "router", health: null };
 
   function localGet(k) { try { return localStorage.getItem("cqa." + k); } catch { return null; } }
   function localSet(k, v) { try { localStorage.setItem("cqa." + k, v); } catch { /* ignore */ } }
@@ -30,6 +30,18 @@
     }
     return a === "yes" ? "good" : "bad";
   }
+  function modelLabel(m) {
+    if (!m) return "";
+    if (m.startsWith("claude-sonnet")) return "Claude Sonnet 5.5";
+    if (m.startsWith("claude-haiku")) return "Claude Haiku 5.5";
+    if (m.includes("@sc")) return "Qwen3.5-35B × 5 голосов";
+    if (m.startsWith("local:")) return m.replace("local:", "") + " (GPU)";
+    return m;
+  }
+  function voteDots(share) {
+    const k = Math.round(share * 5);
+    return `<span class="dots">${"●".repeat(k)}<span class="off">${"●".repeat(5 - k)}</span></span>`;
+  }
   function answerOptions(crit) {
     const o = crit.type === "scale" ? crit.scale.map((s) => String(s.value)) : ["yes", "no"];
     if (crit.na_allowed) o.push("na");
@@ -50,16 +62,18 @@
         <header class="top">
           <div class="brand"><span class="logo">CQA</span><span>Оценка качества диалогов</span></div>
           <nav>
+            <a href="#/dash" data-v="dash">Аналитика</a>
             <a href="#/convs" data-v="convs">Диалоги</a>
             <a href="#/checklist" data-v="checklist">Чек-лист</a>
             <a href="#/appeals" data-v="appeals">Апелляции <span class="pill" id="ap-count"></span></a>
-            <a href="#/costs" data-v="costs">Модель и расходы</a>
+            <a href="#/lab" data-v="lab">Эксперименты</a>
+            <a href="#/costs" data-v="costs">Расходы</a>
           </nav>
           <div class="controls">
             <label>Набор <select id="group"></select></label>
-            <button class="ghost" id="load">Загрузить group_id…</button>
+            <button class="ghost" id="load" title="Загрузить набор по group_id из API организаторов">+ group_id</button>
             <label>Модель <select id="provider">
-              <option value="claude">Claude API</option><option value="local">Локальная (HPC)</option></select></label>
+              <option value="router">Sonnet + Qwen (маршрут.)</option><option value="claude">Claude Sonnet 5.5</option><option value="local_sc5">Qwen × 5 (GPU)</option><option value="local">Qwen3.5 (GPU)</option></select></label>
           </div>
         </header>
         <main id="view"></main>`;
@@ -71,8 +85,10 @@
       this.refreshGroups().then(() => this.render(true));
       P().health().then((h) => {
         store.health = h;
-        if (!h.has_claude_key && store.provider === "claude") {
-          store.provider = "local"; this.querySelector("#provider").value = "local";
+        if (!["router", "claude", "local_sc5", "local"].includes(store.provider)) { store.provider = "router"; }
+        this.querySelector("#provider").value = store.provider;
+        if (!h.has_claude_key && store.provider !== "local") {
+          store.provider = "local_sc5"; this.querySelector("#provider").value = "local_sc5";
           this.querySelector("#provider option[value=claude]").textContent = "Claude API (нет ключа)";
         }
       }).catch(() => {});
@@ -104,7 +120,7 @@
       const r = route();
       this.querySelectorAll("nav a").forEach((a) => a.classList.toggle("on", a.dataset.v === (r.view === "conv" ? "convs" : r.view)));
       const v = this.querySelector("#view");
-      const tag = { convs: "cqa-dialogs", conv: "cqa-dialogs", checklist: "cqa-checklist", appeals: "cqa-appeals", costs: "cqa-costs" }[r.view] || "cqa-dialogs";
+      const tag = { dash: "cqa-dash", lab: "cqa-lab", convs: "cqa-dialogs", conv: "cqa-dialogs", checklist: "cqa-checklist", appeals: "cqa-appeals", costs: "cqa-costs" }[r.view] || "cqa-dialogs";
       let el = v.firstElementChild;
       if (!el || el.tagName.toLowerCase() !== tag || force) { v.innerHTML = ""; el = document.createElement(tag); v.appendChild(el); }
       if (el.onRoute) el.onRoute(r);
@@ -206,14 +222,28 @@
           <div class="card-body">
             <div class="results">${ev ? this.resultsHtml(ev) : `<div class="placeholder">Диалог ещё не оценён. Нажмите «Оценить».</div>`}</div>
             <div class="transcript">
-              ${isCall && c.audio_url ? `<div class="player"><audio id="audio" controls preload="none" src="${P().audioUrl(this.key)}"></audio><div class="muted small">Клик по ссылке-доказательству перематывает запись к реплике.</div></div>` : ""}
+              ${isCall && c.audio_url ? `<div class="player"><audio id="audio" controls preload="none" src="${P().audioUrl(this.key)}"></audio><div id="wave" class="wave"><span class="muted small">Загрузка волны записи…</span></div></div>` : ""}
+              <details class="timing" ${isCall ? "" : "open"}><summary>Скорость ответов оператора</summary><div id="delays"></div></details>
               <div class="turns">${c.turns.map((t) => this.turnHtml(t, isCall)).join("")}</div>
             </div>
           </div>
         </div>`;
       this.querySelector("#re-eval").onclick = () => this.evaluate();
       const audio = this.querySelector("#audio");
-      if (audio) audio.ontimeupdate = () => this.syncAudio(audio.currentTime);
+      if (audio) audio.ontimeupdate = () => { this.syncAudio(audio.currentTime); this.wave && this.wave.setTime(audio.currentTime); };
+      const G = window.CQA.charts;
+      this.querySelectorAll("[data-gauge]").forEach((g) => G.gauge(g, g.dataset.gauge === "" ? null : +g.dataset.gauge));
+      G.delays(this.querySelector("#delays"), c.turns, { onPick: (i) => this.focusTurn(i, true) });
+      if (isCall && c.audio_url) {
+        const marks = {};
+        if (ev) Object.entries(ev.results).forEach(([cid, r]) => (r.evidence || []).forEach((e) => {
+          const cr = ev.checklist.criteria.find((x) => x.id === cid);
+          marks[e.turn] = (marks[e.turn] ? marks[e.turn] + "; " : "") + (cr ? cr.title : cid);
+        }));
+        P().peaks(this.key).then((pk) => {
+          this.wave = G.waveform(this.querySelector("#wave"), pk.peaks, pk.duration, c.turns, { marks, onSeek: (sec) => this.seek(sec + 1) });
+        }).catch((e) => { this.querySelector("#wave").innerHTML = `<span class="muted small">Волна недоступна: ${esc(e.message)}</span>`; });
+      }
     }
     turnHtml(t, isCall) {
       const time = isCall ? (t.t != null ? new Date(t.t * 1000).toISOString().substr(14, 5) : "") : t.timestamp;
@@ -229,7 +259,7 @@
       return `
         <div class="scorebox">
           <div class="total ${fs.total == null ? "none" : fs.total >= 85 ? "good" : fs.total >= 60 ? "mid" : "bad"}">
-            <div class="num">${fs.total == null ? "—" : fmt(fs.total)}</div><div class="lbl">${changed ? "итог после апелляций" : "итоговый балл"} из 100</div>
+            <div class="gauge" data-gauge="${fs.total ?? ""}"></div><div class="lbl">${changed ? "итог после апелляций" : "итоговый балл"} из 100</div>
             ${changed ? `<div class="orig">исходно ${fmt(os.total)}</div>` : ""}
           </div>
           <div class="score-side">
@@ -237,7 +267,7 @@
             ${fs.total == null ? `<div class="muted">Итог не рассчитывается: нет применимых критериев с весом.</div>` : ""}
             ${fs.na_criteria.length ? `<div class="muted small">N/A: ${fs.na_criteria.map((id) => esc((cl.criteria.find((c) => c.id === id) || {}).title || id)).join(", ")} — вес перераспределён (применимый вес ${fmt(fs.applicable_weight)} → 100)</div>` : ""}
             <div class="secs">${secs}</div>
-            <div class="muted small">Чек-лист v${ev.checklist_version} · ${esc(ev.model)} · оценка #${ev.id}${ev.cost_usd ? ` · $${ev.cost_usd.toFixed(4)}` : ""}</div>
+            <div class="muted small">Чек-лист v${ev.checklist_version} · ${esc(ev.model.startsWith("router") ? "маршрутизатор Sonnet + Qwen" : modelLabel(ev.model))} · оценка #${ev.id}${ev.cost_usd ? ` · $${ev.cost_usd.toFixed(4)}` : ""}</div>
           </div>
         </div>
         <div class="crits">${cl.criteria.map((c) => this.critHtml(c, ev)).join("")}</div>`;
@@ -271,7 +301,7 @@
             <b>Апелляция #${a.id}</b> (${a.status === "open" ? "ожидает решения" : a.decision === "change" ? "оценка изменена" : "оценка подтверждена"}): «${esc(a.comment)}»
             ${a.status === "decided" ? `<div>Решение проверяющего: <b>${answerLabel(c, a.new_answer)}</b> — ${esc(a.reason)}</div>` : ""}</div>`).join("")}
         <div class="crit-actions">
-          <span class="muted small">уверенность: ${esc(r.confidence || "—")}</span>
+          <span class="muted small">${esc(modelLabel(r.model))}${r.vote_share != null ? ` · <span class="votes" title="${esc(JSON.stringify(r.votes || {}))}">${voteDots(r.vote_share)} ${Math.round(r.vote_share * 5)} из 5 голосов</span>` : ` · уверенность: ${esc(r.confidence || "—")}`}</span>
           ${aps.some((a) => a.status === "open") ? "" : `<button class="ghost small" data-appeal="${c.id}">Оспорить</button>`}
         </div>
         <form class="appeal-form hidden" data-form="${c.id}">
@@ -531,6 +561,91 @@
     }
   }
 
+  // ------------------------------------------------------------------ analytics dashboard
+  class CqaDash extends HTMLElement {
+    async connectedCallback() {
+      this.innerHTML = `<section class="page wide"><div class="placeholder">Загрузка аналитики…</div></section>`;
+      const a = await P().analytics(store.group).catch((e) => ({ error: e.message }));
+      if (a.error) { this.innerHTML = `<section class="page"><p class="err">${esc(a.error)}</p></section>`; return; }
+      const tiles = [
+        ["Оценено диалогов", `${a.n_evaluated} / ${a.n_dialogues}`, ""],
+        ["Средний итог", fmt(a.mean_total), "из 100"],
+        ["Грубые ошибки", a.gross.length, a.gross.length ? "диалогов с флагом" : "не выявлено"],
+        ["Требуют проверки", a.needs_review, "критериев с сомнением"],
+        ["Апелляции", `${a.appeals_open} / ${a.appeals_decided}`, "открыто / решено"],
+        ["Стоимость набора", "$" + (a.cost_usd || 0).toFixed(3), Object.keys(a.models).join(", ")],
+      ];
+      this.innerHTML = `<section class="page wide">
+        <div class="page-head"><h2>Аналитика набора ${esc(store.group)}</h2><span class="muted small">наведите на график, чтобы увидеть значения; клик по диалогу открывает карточку</span></div>
+        <div class="tiles">${tiles.map(([l, v, s]) => `<div class="tile"><div class="tl">${l}</div><div class="tv">${v}</div><div class="ts">${esc(s)}</div></div>`).join("")}</div>
+        <div class="grid2">
+          <div class="panel"><h3>Распределение итоговых баллов</h3><div id="hist"></div></div>
+          <div class="panel"><h3>Исходы по критериям</h3><div id="outc"></div></div>
+          <div class="panel"><h3>Средний итог по языку и каналу</h3><div id="lang"></div></div>
+          <div class="panel"><h3>Требуют внимания</h3>
+            <div class="flaglist">${a.gross.map((c) => `<a class="chip bad" href="#/conv/${encodeURIComponent(store.group + ":" + c)}">⚑ ${esc(c)} — грубая ошибка</a>`).join("")}
+            ${a.worst.map((w) => `<a class="chip" href="#/conv/${encodeURIComponent(w.key)}">${esc(w.cid)} — ${fmt(w.total)} баллов</a>`).join("")}</div></div>
+        </div></section>`;
+      const G = window.CQA.charts;
+      G.histogram(this.querySelector("#hist"), a.totals);
+      G.outcomes(this.querySelector("#outc"), a.criteria);
+      const L = { RU: "Русский", KZ: "Казахский", EN: "Английский", "agent chat": "Чаты", "voice call": "Звонки" };
+      G.hbars(this.querySelector("#lang"), [
+        ...Object.entries(a.by_language).map(([k, v]) => ({ label: `${L[k] || k} (${v.n})`, value: v.mean, color: G.C.s1 })),
+        ...Object.entries(a.by_channel).map(([k, v]) => ({ label: `${L[k] || k} (${v.n})`, value: v.mean, color: G.C.s2 })),
+      ], { unit: "", label: "Средний итог" });
+    }
+  }
+
+  // ------------------------------------------------------------------ experiments lab
+  const VNAME = {
+    "app:claude-sonnet-5-5": "Claude Sonnet 5.5", "app:local:Qwen3.5-35B-A3B-GPTQ-Int4": "Qwen3.5-35B (локально)",
+    router_sonnet_qwensc5: "Маршрутизатор Sonnet + Qwen×5", router_sonnet_qwen: "Маршрутизатор Sonnet + Qwen",
+    router_sonnet_qwensc5_haiku: "Маршрутизатор Sonnet + Qwen×5 + Haiku", router_free_local: "Маршрутизатор: только GPU",
+    router_cheap: "Маршрутизатор: Haiku + GPU", router_all: "Маршрутизатор: все", jury_sonnet_qwen_haiku: "Жюри Sonnet/Qwen/Haiku",
+    qwen_sub_sc5: "Qwen + подвопросы × 5",
+    haiku: "Claude Haiku 5.5", haiku_sub: "Haiku + подвопросы", qwen: "Qwen", qwen_sc5: "Qwen × 5 голосов",
+    qwen_sub: "Qwen + подвопросы", qwen_sub_sc5: "Qwen + подвопросы × 5", qwen_percrit: "Qwen, критерий на запрос",
+    qwen_gloss: "Qwen + перевод KZ→RU", gemma: "Gemma 3 27B (локально)", gemma_sc5: "Gemma × 5 голосов",
+  };
+  const vname = (k) => VNAME[k] || (k.startsWith("cascade_") ? k.replace(/^cascade_(qwen_sub_sc5|qwen_sc5)_to_sonnet@(.*)$/, (m, a, t) => `Каскад ${a === "qwen_sc5" ? "Qwen×5" : "Qwen+подвопросы×5"} → Sonnet (порог ${t})`) : null) || k.replace(/^cascade_/, "каскад ").replace(/^jury_/, "жюри ").replace(/^router_/, "маршрутизатор ").replace(/_/g, " ");
+  class CqaLab extends HTMLElement {
+    async connectedCallback() {
+      const ex = await P().experiments();
+      if (!ex) { this.innerHTML = `<section class="page"><p class="muted">Эксперименты ещё не запускались (python -m eval.experiments report).</p></section>`; return; }
+      const names = Object.keys(ex).filter((k) => !k.startsWith("_") && ex[k].all && ex[k].all.n);
+      const best = names.slice().sort((a, b) => ex[b].test.accuracy - ex[a].test.accuracy);
+      const crits = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"].map((id, i) => ({ id, short: "К" + (i + 1), title: ["Контакт", "Потребность", "Идентификация", "Консультация", "Эмпатия", "Ведение", "Завершение", "Грубые"][i] }));
+      this.innerHTML = `<section class="page wide">
+        <div class="page-head"><h2>Эксперименты: какой способ оценки точнее</h2>
+          <span class="muted small">эталон — 44 диалога; выбор делается на половине «dev», точность показана на отложенной половине «test»</span></div>
+        <div class="grid2">
+          <div class="panel"><h3>Точность на отложенной выборке</h3><div id="acc"></div></div>
+          <div class="panel"><h3>Стоимость и точность</h3><div id="cost"></div></div>
+          <div class="panel"><h3>Выборочная проверка человеком</h3><div id="risk"></div>
+            <p class="muted small">Оценки сортируются по уверенности (доля совпавших голосов, самооценка модели). Проверяющий смотрит самые неуверенные — точность остальных растёт.</p></div>
+          <div class="panel"><h3>Маршрутизатор: кто оценивает какой критерий</h3><div id="route"></div></div>
+          <div class="panel span2"><h3>Точность по критериям (все 44 диалога)</h3><div id="heat"></div></div>
+          <div class="panel span2"><h3>Таблица</h3><div class="tblwrap"><table class="tbl"><tr><th>Способ</th><th>dev</th><th>test</th><th>все</th><th>KZ</th><th>RU</th><th>EN</th><th>Звонки</th><th>ошибка итога</th><th>грубые (найдено/пропущено/ложно)</th><th>$ / диалог</th></tr>
+          ${best.map((k) => { const a = ex[k].all, pl = a.per_language || {}, g = a.gross || {}; const p = (v) => (v == null ? "—" : Math.round(v * 1000) / 10 + "%");
+            return `<tr><td>${esc(vname(k))}</td><td>${p(ex[k].dev.accuracy)}</td><td><b>${p(ex[k].test.accuracy)}</b></td><td>${p(a.accuracy)}</td><td>${p(pl.KZ)}</td><td>${p(pl.RU)}</td><td>${p(pl.EN)}</td><td>${p(pl.CALL)}</td><td>${fmt(a.total_mae)}</td><td>${g.tp || 0}/${g.fn || 0}/${g.fp || 0}</td><td>$${(a.usd_per_dialogue || 0).toFixed(4)}</td></tr>`; }).join("")}</table></div></div>
+        </div></section>`;
+      const G = window.CQA.charts;
+      const colorOf = (k) => (k.includes("sonnet") || k.includes("haiku") ? (k.startsWith("cascade") || k.startsWith("jury") || k.startsWith("router") ? G.C.s3 : G.C.s2) : G.C.s1);
+      G.hbars(this.querySelector("#acc"), best.slice(0, 12).map((k) => ({ label: vname(k).slice(0, 34), tip: vname(k), value: 100 * ex[k].test.accuracy, color: colorOf(k) })), { unit: "%", max: 100, labelWidth: 250 });
+      this.querySelector("#acc").insertAdjacentHTML("beforeend", `<div class="viz-legend"><span><i style="background:${G.C.s1}"></i>локальные модели (GPU)</span><span><i style="background:${G.C.s2}"></i>Claude API</span><span><i style="background:${G.C.s3}"></i>комбинации (каскад, жюри, маршрутизатор)</span></div>`);
+      G.costAccuracy(this.querySelector("#cost"), best.map((k, i) => ({ label: vname(k), cost: ex[k].all.usd_per_dialogue || 0, acc: ex[k].test.accuracy, color: colorOf(k), showLabel: i < 4 })));
+      const rc = ex._risk_coverage || [];
+      if (rc.length) G.riskCoverage(this.querySelector("#risk"), rc);
+      const ch = (ex._router_choices || {})["app:claude-sonnet-5-5 + qwen_sc5"];
+      if (ch) this.querySelector("#route").innerHTML = `<table class="tbl">${crits.map((c) => `<tr><td>${c.short} ${esc(c.title)}</td><td>${esc(vname(ch[c.id]))}</td></tr>`).join("")}</table>
+        <p class="muted small">Выбор сделан на половине «dev»; новый или изменённый критерий оценивает Claude Sonnet 5.5.</p>`;
+      G.heatmap(this.querySelector("#heat"), best.slice(0, 12).map((k) => ({ key: k, label: vname(k) })), crits, (r, c) => ex[r.key].all.per_criterion[c.id]);
+    }
+  }
+
+  customElements.define("cqa-dash", CqaDash);
+  customElements.define("cqa-lab", CqaLab);
   customElements.define("cqa-app", CqaApp);
   customElements.define("cqa-dialogs", CqaDialogs);
   customElements.define("cqa-card", CqaCard);

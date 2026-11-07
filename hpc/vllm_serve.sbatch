@@ -4,7 +4,7 @@
 # so the job leaves nothing in the NFS home quota except logs and the host file.
 #
 # Submit:   sbatch hpc/vllm_serve.sbatch            (default model)
-#           MODEL=Qwen/Qwen3.5-9B sbatch hpc/vllm_serve.sbatch
+#           TAG=gemma MODEL=gaunernst/gemma-3-27b-it-int4-awq sbatch -J cqa-gemma hpc/vllm_serve.sbatch
 # Tunnel:   ssh -N -L 8001:$(cat ~/cqa/vllm_host):8000 student-lab
 #SBATCH -J cqa-vllm
 #SBATCH -p ws-ia
@@ -47,21 +47,22 @@ rm -rf "$BASE/venv"  # broken CUDA-13 env from the first attempt, if present
 source "$VENV/bin/activate"
 python -c "import torch, vllm; print('torch', torch.__version__, 'cuda', torch.version.cuda, 'gpu', torch.cuda.is_available(), 'vllm', vllm.__version__)"
 
-hostname > "$HOME/cqa/vllm_host"
+TAG=${TAG:-vllm}
+hostname > "$HOME/cqa/${TAG}_host"
 
 serve() {
   vllm serve "$1" \
     --served-model-name local-judge \
     --host 0.0.0.0 --port 8000 --api-key "$KEY" \
-    --max-model-len 16384 --max-num-seqs 16 \
+    --max-model-len 16384 --max-num-seqs ${MAX_SEQS:-16} \
     --gpu-memory-utilization 0.93 \
     --limit-mm-per-prompt '{"image":0,"video":0}' \
     --enable-prefix-caching
 }
 
 echo "[$(date)] starting $MODEL"
-echo "$MODEL" > "$HOME/cqa/vllm_model"
+echo "$MODEL" > "$HOME/cqa/${TAG}_model"
 serve "$MODEL"
 echo "[$(date)] primary model exited ($?), trying fallback $FALLBACK"
-echo "$FALLBACK" > "$HOME/cqa/vllm_model"
+echo "$FALLBACK" > "$HOME/cqa/${TAG}_model"
 serve "$FALLBACK"

@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from . import budget, service  # noqa: E402
-from .datasource import ROOT, facts, resolve_audio  # noqa: E402
+from .datasource import ROOT, audio_peaks, facts, resolve_audio  # noqa: E402
 
 app = FastAPI(title="CQA — Conversation Quality Analytics")
 service.ensure_seed()
@@ -73,6 +73,22 @@ def audio(key: str, request: Request):
     except Exception as e:
         _err(e, 502)
     return _ranged_file(p, request)
+
+
+@app.get("/api/audio/{key}/peaks")
+def peaks(key: str):
+    conv = service.get_conv(key)
+    if not conv.get("audio_url"):
+        _err(KeyError("no audio"), 404)
+    try:
+        return audio_peaks(resolve_audio(conv["conversation_id"], conv["audio_url"]))
+    except Exception as e:
+        _err(e, 502)
+
+
+@app.get("/api/analytics")
+def analytics(group_id: str | None = None, version: int | None = None, model: str | None = None):
+    return service.analytics(group_id, version, model)
 
 
 def _ranged_file(p: Path, request: Request):

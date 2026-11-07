@@ -220,3 +220,25 @@ def resolve_audio(conv_id: str, url: str) -> Path:
     tmp.write_bytes(data)
     tmp.rename(p)
     return p
+
+
+def audio_peaks(path: Path, buckets: int = 900) -> dict:
+    """Max-abs amplitude per bucket (for a waveform), computed once with ffmpeg and cached."""
+    import array
+    import shutil
+    import subprocess
+    cache = path.with_suffix(f".peaks{buckets}.json")
+    if cache.exists():
+        return json.loads(cache.read_text())
+    if not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg not found")
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
+                         capture_output=True, check=True).stdout
+    pcm = array.array("h")
+    pcm.frombytes(raw[: len(raw) // 2 * 2])
+    n = len(pcm)
+    step = max(1, n // buckets)
+    peaks = [max((abs(x) for x in pcm[i:i + step]), default=0) / 32768 for i in range(0, n, step)][:buckets]
+    out = {"duration": round(n / 8000, 2), "peaks": [round(p, 3) for p in peaks]}
+    cache.write_text(json.dumps(out))
+    return out

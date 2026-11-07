@@ -1,0 +1,47 @@
+{
+ "default": "claude:claude-sonnet-5-5",
+ "chosen_from": "router_sonnet_qwensc5",
+ "chosen_on": "dev half of eval/gold_labels.json",
+ "criteria": {
+  "c1": {
+   "source": "claude:claude-sonnet-5-5",
+   "wording_hash": "1663438185b1",
+   "title": "Установление контакта"
+  },
+  "c2": {
+   "source": "claude:claude-sonnet-5-5",
+   "wording_hash": "aad56aff50db",
+   "title": "Выявление потребности"
+  },
+  "c3": {
+   "source": "claude:claude-sonnet-5-5",
+   "wording_hash": "877777d8c76f",
+   "title": "Идентификация"
+  },
+  "c4": {
+   "source": "local_sc5",
+   "wording_hash": "acc10bff5c70",
+   "title": "Корректная и полная консультация"
+  },
+  "c5": {
+   "source": "local_sc5",
+   "wording_hash": "d9a95314cecd",
+   "title": "Эмпатия и клиентоориентированность"
+  },
+  "c6": {
+   "source": "local_sc5",
+   "wording_hash": "e00b7158a38a",
+   "title": "Управление диалогом, скорость и грамотность"
+  },
+  "c7": {
+   "source": "claude:claude-sonnet-5-5",
+   "wording_hash": "c80ae1c0a6c2",
+   "title": "Завершение"
+  },
+  "c8": {
+   "source": "claude:claude-sonnet-5-5",
+   "wording_hash": "4d947880a978",
+   "title": "Грубые ошибки"
+  }
+ }
+}

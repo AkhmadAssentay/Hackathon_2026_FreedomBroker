@@ -1,0 +1,124 @@
+{
+ "model": "claude-sonnet-5-5",
+ "checklist_version": 1,
+ "n_dialogues": 44,
+ "n_labels": 352,
+ "overall_accuracy": 0.869,
+ "per_language_accuracy": {
+  "CALL": 0.75,
+  "EN": 0.927,
+  "KZ": 0.854,
+  "RU": 0.86
+ },
+ "per_criterion": [
+  {
+   "id": "c1",
+   "title": "Установление контакта",
+   "n": 44,
+   "accuracy": 0.977,
+   "kappa": 0.845,
+   "confusions": {
+    "no→yes": 1
+   }
+  },
+  {
+   "id": "c2",
+   "title": "Выявление потребности",
+   "n": 44,
+   "accuracy": 0.932,
+   "kappa": 0.871,
+   "confusions": {
+    "na→no": 2,
+    "na→yes": 1
+   }
+  },
+  {
+   "id": "c3",
+   "title": "Идентификация",
+   "n": 44,
+   "accuracy": 1.0,
+   "kappa": 1.0,
+   "confusions": {}
+  },
+  {
+   "id": "c4",
+   "title": "Корректная и полная консультация",
+   "n": 44,
+   "accuracy": 0.659,
+   "kappa": 0.486,
+   "confusions": {
+    "20→15": 12,
+    "15→10": 1,
+    "20→5": 1,
+    "10→5": 1
+   }
+  },
+  {
+   "id": "c5",
+   "title": "Эмпатия и клиентоориентированность",
+   "n": 44,
+   "accuracy": 0.864,
+   "kappa": 0.622,
+   "confusions": {
+    "yes→no": 6
+   }
+  },
+  {
+   "id": "c6",
+   "title": "Управление диалогом, скорость и грамотность",
+   "n": 44,
+   "accuracy": 0.614,
+   "kappa": 0.379,
+   "confusions": {
+    "10→7": 10,
+    "7→4": 4,
+    "4→7": 1,
+    "4→0": 1
+   }
+  },
+  {
+   "id": "c7",
+   "title": "Завершение",
+   "n": 44,
+   "accuracy": 0.909,
+   "kappa": 0.773,
+   "confusions": {
+    "yes→no": 3,
+    "na→no": 1
+   }
+  },
+  {
+   "id": "c8",
+   "title": "Грубые ошибки",
+   "n": 44,
+   "accuracy": 1.0,
+   "kappa": 1.0,
+   "confusions": {}
+  }
+ ],
+ "na": {
+  "precision": 1.0,
+  "recall": 0.939
+ },
+ "gross_error": {
+  "tp": 7,
+  "fp": 0,
+  "fn": 0
+ },
+ "binary_error_direction": {
+  "n": 154,
+  "false_pass": 1,
+  "false_fail": 9
+ },
+ "total_score_mae": 8.88,
+ "evidence_valid_first_pass": 0.943,
+ "needs_review_share": 0.011,
+ "cost": {
+  "usd_total": 0.8209,
+  "dialogues": 44,
+  "calls": 61,
+  "usd_per_dialogue": 0.0187,
+  "input_tokens": 76697,
+  "output_tokens": 59006
+ }
+}

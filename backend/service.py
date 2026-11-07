@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import traceback
 import uuid
@@ -11,8 +12,8 @@ from typing import Any
 
 from . import budget, db
 from .datasource import ROOT, facts, fetch_group, normalise, transcript_hash
-from .judge import (build_messages, criterion_hash, get_provider, needs_russian, schema_for,
-                    translate_to_russian, validate)
+from .judge import (LocalProvider, build_messages, criterion_hash, get_provider, majority_sample, needs_russian,
+                    provider_from_spec, schema_for, translate_to_russian, validate, wording_hash)
 from .scoring import allowed_answers, score
 
 # ------------------------------------------------------------------ checklists
@@ -132,17 +133,45 @@ def precedents(cl: dict, limit: int = 3) -> dict[str, list[str]]:
 # ------------------------------------------------------------------ evaluation
 
 
+ROUTER_PATH = ROOT / "config" / "router.json"
+
+
+def router_config() -> dict:
+    try:
+        return json.loads(ROUTER_PATH.read_text())
+    except Exception:
+        return {"default": "claude:claude-sonnet-5-5", "criteria": {}}
+
+
+def assign_providers(cl: dict, provider_name: str | None, model: str | None) -> tuple[dict, str]:
+    """criterion id -> provider. 'router' sends each criterion to the source that was most accurate
+    for it on the dev half of the reference set; a criterion whose wording changed (edited or
+    replaced in the UI) goes to the router's default model."""
+    name = provider_name or os.environ.get("DEFAULT_PROVIDER", "router")
+    if name != "router":
+        p = get_provider(name, model)
+        return {c["id"]: p for c in cl["criteria"]}, p.model
+    rc = router_config()
+    cache: dict[str, object] = {}
+    out = {}
+    for c in cl["criteria"]:
+        rule = rc.get("criteria", {}).get(c["id"])
+        spec = rule["source"] if rule and rule.get("wording_hash") == wording_hash(c) else rc.get("default", "claude:claude-sonnet-5-5")
+        if spec not in cache:
+            cache[spec] = provider_from_spec(spec)
+        out[c["id"]] = cache[spec]
+    return out, "router(" + ", ".join(sorted({p.model for p in out.values()})) + ")"
+
+
 def evaluate(key: str, version: int | None = None, provider_name: str | None = None,
              model: str | None = None, use_memory: bool = True) -> int:
     conv = get_conv(key)
     cl = get_checklist(version)
-    prov = get_provider(provider_name, model)
-    fx = facts(conv)
-    prec = precedents(cl) if use_memory else {}
-
+    assign, eval_model = assign_providers(cl, provider_name, model)
     results: dict[str, dict] = {}
-    missing = []
+    groups: dict[int, tuple[object, list[dict]]] = {}
     for c in cl["criteria"]:
+        prov = assign[c["id"]]
         h = criterion_hash(c, [])
         row = db.q1("SELECT result_json FROM criterion_cache WHERE conv_id=? AND thash=? AND chash=? AND model=?",
                     (key, conv["thash"], h, prov.model))
@@ -151,16 +180,35 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
             r["from_cache"] = True
             results[c["id"]] = r
         else:
-            missing.append(c)
+            groups.setdefault(id(prov), (prov, []))[1].append(c)
+    for prov, missing in groups.values():
+        results.update(_evaluate_group(key, conv, cl, prov, missing, use_memory))
 
+    answers = {cid: r.get("answer") for cid, r in results.items()}
+    sc = score(cl, answers)
+    return db.ex("INSERT INTO evaluations(conv_id, checklist_version, model, result_json, score_json, created_at)"
+                 " VALUES (?,?,?,?,?,?)",
+                 (key, cl["version"], eval_model, db.dumps(results), db.dumps(sc), db.now()))
+
+
+def _evaluate_group(key: str, conv: dict, cl: dict, prov, missing: list[dict], use_memory: bool) -> dict:
+    fx = facts(conv)
+    prec = precedents(cl) if use_memory else {}
+    results: dict[str, dict] = {}
     if missing:
         total_cost = 0.0
         system, user = build_messages(conv, fx, missing, prec)
         out = prov.complete(system, user, schema_for(missing), key, "evaluate")
         total_cost += out["cost_usd"]
-        fresh, errs_by = {}, {}
+        fresh, errs_by, review_by = {}, {}, {}
+        samples = out.get("samples") or [out["data"]]
         for c in missing:
-            r, errs = validate(c, dict(out["data"].get(c["id"], {})), conv)
+            raw, share, votes = majority_sample(samples, c["id"], c) if len(samples) > 1 else (dict(out["data"].get(c["id"], {})), 1.0, {})
+            r, errs = validate(c, raw, conv)
+            if len(samples) > 1:
+                r["vote_share"], r["votes"] = round(share, 2), votes
+                if share < 0.6:  # weak majority: a human looks at it; no repair (it would replace the vote)
+                    review_by[c["id"]] = [f"ответы модели расходятся: голоса {votes}"]
             fresh[c["id"]], errs_by[c["id"]] = r, errs
         failed = [c for c in missing if errs_by[c["id"]]]
         if failed:  # one repair round, only for the failed criteria
@@ -184,7 +232,8 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
                    if needs_russian(r.get("explanation", "")) or needs_russian(r.get("na_reason", ""))}
         if foreign:
             try:
-                tr, tr_cost = translate_to_russian(prov, foreign, key)
+                tprov = LocalProvider() if getattr(prov, "n", 1) > 1 else prov
+                tr, tr_cost = translate_to_russian(tprov, foreign, key)
                 total_cost += tr_cost
                 for cid, t in tr.items():
                     if t.get("explanation") and not needs_russian(t["explanation"]):
@@ -206,7 +255,7 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
         share = total_cost / max(1, len(missing))
         for c in missing:
             r = fresh[c["id"]]
-            r["errors"] = errs_by[c["id"]]
+            r["errors"] = errs_by[c["id"]] + review_by.get(c["id"], [])
             r["needs_review"] = bool(r["errors"]) or r.get("confidence") == "low"
             r["model"] = prov.model
             r["cost_usd"] = round(share, 6)
@@ -215,12 +264,7 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
                   (key, conv["thash"], r["criterion_hash"], prov.model, db.dumps(r), db.now()))
             r["from_cache"] = False
             results[c["id"]] = r
-
-    answers = {cid: r.get("answer") for cid, r in results.items()}
-    sc = score(cl, answers)
-    return db.ex("INSERT INTO evaluations(conv_id, checklist_version, model, result_json, score_json, created_at)"
-                 " VALUES (?,?,?,?,?,?)",
-                 (key, cl["version"], prov.model, db.dumps(results), db.dumps(sc), db.now()))
+    return results
 
 
 def evaluation_view(eval_id: int) -> dict[str, Any]:
@@ -328,7 +372,7 @@ def start_job(keys: list[str], version: int | None, provider: str | None, model:
     job = {"id": jid, "total": len(keys), "done": 0, "failed": 0, "errors": [], "status": "running",
            "checklist_version": cl["version"], "provider": provider, "eval_ids": {}}
     JOBS[jid] = job
-    sem = threading.Semaphore(workers or (6 if (provider or "claude") == "claude" else 12))
+    sem = threading.Semaphore(workers or (12 if provider in ("local", "local_sc5") else 6))
 
     def one(k: str):
         with sem:
@@ -354,3 +398,63 @@ def start_job(keys: list[str], version: int | None, provider: str | None, model:
     if not keys:
         job["status"] = "finished"
     return jid
+
+
+# ------------------------------------------------------------------ analytics
+
+
+def analytics(group_id: str | None = None, version: int | None = None, model: str | None = None) -> dict:
+    """Aggregates for the dashboard: distribution, criterion outcomes, language/channel, flags."""
+    rows = list_conversations(group_id, version)
+    evs = []
+    for r in rows:
+        if not r.get("evaluation_id"):
+            continue
+        v = evaluation_view(r["evaluation_id"])
+        if model and v["model"] != model:
+            continue
+        evs.append((r, v))
+    crit_meta, outcomes = {}, {}
+    for _, v in evs:
+        for c in v["checklist"]["criteria"]:
+            crit_meta.setdefault(c["id"], {"id": c["id"], "title": c["title"], "type": c["type"], "gross": bool(c.get("gross")),
+                                            "top": max([float(x["value"]) for x in c.get("scale", [])] or [1])})
+            a = v["final_answers"].get(c["id"])
+            o = outcomes.setdefault(c["id"], {"yes": 0, "partial": 0, "no": 0, "na": 0})
+            if a == "na":
+                o["na"] += 1
+            elif c["type"] == "scale":
+                f = float(a) / crit_meta[c["id"]]["top"] if a not in (None, "") else 0
+                o["yes" if f >= 0.999 else "no" if f <= 0 else "partial"] += 1
+            elif c.get("gross"):
+                o["no" if a == "yes" else "yes"] += 1  # "yes" = violation -> counts as a failure
+            else:
+                o["yes" if a == "yes" else "no"] += 1
+    def agg(key):
+        g = {}
+        for r, v in evs:
+            t = v["final_score"]["total"]
+            if t is None:
+                continue
+            g.setdefault(r[key], []).append(t)
+        return {k: {"n": len(x), "mean": round(sum(x) / len(x), 2)} for k, x in sorted(g.items())}
+    totals = [v["final_score"]["total"] for _, v in evs if v["final_score"]["total"] is not None]
+    model_counts = {}
+    for _, v in evs:
+        model_counts[v["model"]] = model_counts.get(v["model"], 0) + 1
+    worst = sorted(((v["final_score"]["total"], r["id"], r["cid"]) for r, v in evs
+                    if v["final_score"]["total"] is not None))[:5]
+    return {
+        "n_dialogues": len(rows), "n_evaluated": len(evs),
+        "mean_total": round(sum(totals) / len(totals), 2) if totals else None,
+        "totals": totals,
+        "gross": [r["cid"] for r, v in evs if v["final_score"]["gross_error"]],
+        "needs_review": sum(len(v["needs_review"]) for _, v in evs),
+        "appeals_open": sum(1 for _, v in evs for a in v["appeals"] if a["status"] == "open"),
+        "appeals_decided": sum(1 for _, v in evs for a in v["appeals"] if a["status"] == "decided"),
+        "criteria": [dict(crit_meta[k], **outcomes[k]) for k in crit_meta],
+        "by_language": agg("language"), "by_channel": agg("channel"),
+        "models": model_counts,
+        "worst": [{"total": t, "key": k, "cid": c} for t, k, c in worst],
+        "cost_usd": round(sum(v["cost_usd"] for _, v in evs), 4),
+    }

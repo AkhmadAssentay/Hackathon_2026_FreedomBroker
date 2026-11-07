@@ -23,11 +23,11 @@ textarea { width: 100%; resize: vertical; }
 .grow { flex: 1; }
 .pad { padding: 12px; }
 
-header.top { display: flex; align-items: center; gap: 18px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+header.top { display: flex; align-items: center; gap: 14px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .logo { background: var(--accent); color: #fff; border-radius: 7px; padding: 3px 7px; font-size: 13px; letter-spacing: .5px; }
 nav { display: flex; gap: 4px; }
-nav a { text-decoration: none; color: var(--muted); padding: 6px 10px; border-radius: 8px; }
+nav a { text-decoration: none; color: var(--muted); padding: 6px 9px; border-radius: 8px; white-space: nowrap; }
 nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .pill { background: var(--bad); color: #fff; border-radius: 9px; font-size: 11px; padding: 0 6px; }
 .pill:empty { display: none; }
@@ -159,3 +159,37 @@ nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 60
 .fl { font-size: 11.5px; color: var(--muted); margin-bottom: -3px; }
 .cform > .fl { display: block; }
 .turn.internal { background: repeating-linear-gradient(45deg, #f3f3f3, #f3f3f3 8px, #ececec 8px, #ececec 16px); align-self: center; max-width: 80%; opacity: .8; }
+
+/* ---- dashboard & charts ---- */
+.page.wide { max-width: 1320px; }
+.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin: 14px 0; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+.tile .tl { font-size: 12px; color: var(--muted); }
+.tile .tv { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tile .ts { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); min-width: 0; }
+.panel h3 { margin: 0 0 8px; font-size: 14px; }
+.panel.span2 { grid-column: 1 / -1; }
+.viz { display: block; max-width: 100%; height: auto; }
+.viz .ax { font-size: 11px; fill: #66736d; font-variant-numeric: tabular-nums; }
+.viz .lbl { font-size: 12.5px; fill: #18211d; }
+.viz .lbl.small { font-size: 11px; }
+.viz .val { font-size: 12px; fill: #52514e; font-variant-numeric: tabular-nums; }
+.viz .cell { font-size: 12px; font-weight: 600; }
+.viz-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #52514e; margin-top: 6px; }
+.viz-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.viz-tip { position: fixed; z-index: 100; pointer-events: none; opacity: 0; transition: opacity .1s; background: #18211d; color: #fff; font-size: 12.5px; padding: 6px 9px; border-radius: 6px; max-width: 320px; line-height: 1.35; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.flaglist { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.bad { background: var(--bad-bg); border-color: #f0c4c0; color: var(--bad); }
+.tblwrap { overflow-x: auto; }
+.gauge svg { display: block; margin: 0 auto; }
+.gauge-num { font-size: 26px; font-weight: 700; fill: currentColor; font-variant-numeric: tabular-nums; }
+.total .gauge { color: inherit; }
+.wave { margin-top: 6px; }
+.timing { padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.timing summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(3, 1fr); } .grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.dots { letter-spacing: 1px; color: #1baf7a; font-size: 10px; }
+.dots .off { color: #d9dfdb; }

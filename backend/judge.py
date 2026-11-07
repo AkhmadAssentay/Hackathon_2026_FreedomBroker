@@ -51,6 +51,51 @@ Evidence rules (checked by code — invalid citations are rejected):
 """
 
 
+# ------------------------------------------------------------------ sub-questions (CheckEval / TICK style)
+# A criterion may carry yes/no sub-questions and a named rule that computes its answer in code.
+# They stay active only while the criterion's wording is unchanged (locked_hash), so a criterion
+# edited or replaced in the UI is evaluated directly from its new text.
+
+def _b(x) -> bool:
+    return bool(x) is True if isinstance(x, bool) else str(x).lower() in ("true", "yes", "1")
+
+
+def _rule_closing(q: dict) -> str:
+    if _b(q.get("cutoff")) and not _b(q.get("goodbye")):
+        return "na"
+    return "yes" if _b(q.get("goodbye")) and (_b(q.get("summary")) or _b(q.get("offer_help"))) else "no"
+
+
+def _rule_needs(q: dict) -> str:
+    if _b(q.get("reasked_known")) or _b(q.get("guessed")):
+        return "no"
+    if _b(q.get("asked_missing")):
+        return "yes"
+    return "na" if _b(q.get("enough_from_start")) else "no"
+
+
+def _rule_identification(q: dict) -> str:
+    if _b(q.get("disclosed_before_verification")):
+        return "no"
+    if _b(q.get("verified")):
+        return "yes"
+    return "na"
+
+
+RULES = {"closing": _rule_closing, "needs": _rule_needs, "identification": _rule_identification}
+
+
+def wording_hash(c: dict) -> str:
+    s = json.dumps([c.get("type"), c.get("description"), c.get("na_condition"), c.get("scale")], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(s.encode()).hexdigest()[:12]
+
+
+def active_subchecks(c: dict) -> list[dict]:
+    if c.get("subchecks") and c.get("rule") in RULES and c.get("locked_hash") == wording_hash(c):
+        return c["subchecks"]
+    return []
+
+
 def _crit_block(c: dict, precedents: list[str]) -> str:
     kind = "шкала " + "/".join(str(s["value"]) for s in c["scale"]) if c["type"] == "scale" else "Да/Нет"
     lines = [
@@ -68,6 +113,10 @@ def _crit_block(c: dict, precedents: list[str]) -> str:
     if c.get("guidelines"):
         lines.append("Guidelines:")
         lines += [f"  - {g}" for g in c["guidelines"]]
+    sub = active_subchecks(c)
+    if sub:
+        lines.append("Sub-questions (answer each true/false in `subchecks`; the final answer is computed from them by a fixed rule):")
+        lines += [f"  - {q['id']}: {q['q']}" for q in sub]
     if precedents:
         lines.append("Reviewer decisions on earlier appeals (follow them in similar cases):")
         lines += [f"  - {p}" for p in precedents]
@@ -100,6 +149,7 @@ def criterion_hash(c: dict, precedents: list[str]) -> str:
 def schema_for(criteria: list[dict]) -> dict:
     props = {}
     for c in criteria:
+        sub = active_subchecks(c)
         props[c["id"]] = {
             "type": "object",
             "properties": {
@@ -118,8 +168,53 @@ def schema_for(criteria: list[dict]) -> dict:
                          "answer", "confidence"],
             "additionalProperties": False,
         }
+        if sub:
+            sp = props[c["id"]]
+            sp["properties"] = {"subchecks": {"type": "object", "properties": {q["id"]: {"type": "boolean"} for q in sub},
+                                              "required": [q["id"] for q in sub], "additionalProperties": False},
+                                **sp["properties"]}
+            sp["required"] = ["subchecks"] + sp["required"]
     return {"type": "object", "properties": props, "required": [c["id"] for c in criteria],
             "additionalProperties": False}
+
+
+def schema_compact(criteria: list[dict]) -> dict:
+    """One shared item schema (Claude's grammar compiler rejects 8 repeated slots).
+    Answer validity per criterion is enforced by validate() + the repair round instead."""
+    item = {
+        "type": "object",
+        "properties": {
+            "criterion_id": {"type": "string", "enum": [c["id"] for c in criteria]},
+            "subchecks": {"type": "array", "items": {"type": "object", "properties": {
+                "id": {"type": "string"}, "value": {"type": "boolean"}}, "required": ["id", "value"],
+                "additionalProperties": False}},
+            "evidence": {"type": "array", "items": {
+                "type": "object", "properties": {"turn": {"type": "integer"}, "quote": {"type": "string"}},
+                "required": ["turn", "quote"], "additionalProperties": False}},
+            "checked_span": {"type": "array", "items": {"type": "integer"}},
+            "expected_turn": {"type": "integer"},
+            "na_reason_ru": {"type": "string"},
+            "explanation_ru": {"type": "string"},
+            "answer": {"type": "string"},
+            "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        },
+        "required": ["criterion_id", "evidence", "checked_span", "expected_turn", "na_reason_ru",
+                     "explanation_ru", "answer", "confidence"],
+        "additionalProperties": False,
+    }
+    return {"type": "object", "properties": {"results": {"type": "array", "items": item}},
+            "required": ["results"], "additionalProperties": False}
+
+
+def unpack_compact(data: dict) -> dict:
+    if "results" in data and isinstance(data["results"], list):
+        out = {}
+        for r in data["results"]:
+            if isinstance(r.get("subchecks"), list):
+                r["subchecks"] = {q.get("id"): q.get("value") for q in r["subchecks"]}
+            out[r.get("criterion_id")] = r
+        return out
+    return data
 
 
 def build_messages(conv: dict, facts: dict, criteria: list[dict], precedents: dict[str, list[str]],
@@ -130,7 +225,8 @@ def build_messages(conv: dict, facts: dict, criteria: list[dict], precedents: di
             + f"\n\n## Transcript ({conv['conversation_id']}, {conv['channel']}, {conv['language']})\n"
             + render_transcript(conv)
             + "\n\nEvaluate the operator on every criterion above. Write every explanation_ru and na_reason_ru in Russian "
-              "(даже если диалог на казахском или английском); quotes stay verbatim. Return JSON only.")
+              "(даже если диалог на казахском или английском); quotes stay verbatim. Return JSON only: "
+              "one result per criterion, answer exactly as listed in 'Allowed answers'.")
     if repair_note:
         user += "\n\n## Your previous answer failed validation — fix exactly these problems:\n" + repair_note
     return system, user
@@ -166,7 +262,7 @@ class ClaudeProvider(Provider):
                 system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": user}],
                 output_config={"effort": self.effort,
-                               "format": {"type": "json_schema", "schema": schema}},
+                               "format": {"type": "json_schema", "schema": self._compact(schema)}},
             )
         finally:
             budget.release(reserved)
@@ -180,15 +276,35 @@ class ClaudeProvider(Provider):
         if resp.stop_reason == "max_tokens":
             raise RuntimeError("output truncated (max_tokens)")
         text = next(b.text for b in resp.content if b.type == "text")
-        return {"data": json.loads(text), "usage": usage, "cost_usd": cost}
+        return {"data": unpack_compact(json.loads(text)), "usage": usage, "cost_usd": cost}
+
+    @staticmethod
+    def _compact(schema: dict) -> dict:
+        """Per-criterion slot schema -> compact list schema (same fields, answers checked in code)."""
+        props = schema.get("properties", {})
+        if set(props) == {"results"}:
+            return schema
+        sample = next(iter(props.values()), {})
+        if "answer" not in sample.get("properties", {}):
+            return schema  # e.g. the translation schema: small enough as is
+        compact = schema_compact([{"id": cid} for cid in props])
+        if not any("subchecks" in p.get("properties", {}) for p in props.values()):
+            item = compact["properties"]["results"]["items"]
+            item["properties"].pop("subchecks")
+        else:
+            item = compact["properties"]["results"]["items"]
+            item["required"] = ["subchecks"] + item["required"]
+        return compact
 
 
 class LocalProvider(Provider):
     """vLLM OpenAI-compatible server (HPC, via SSH tunnel). Free; data stays on-prem."""
     name = "local"
 
-    def __init__(self, base_url: str | None = None, model: str | None = None, max_tokens: int = 6000):
+    def __init__(self, base_url: str | None = None, model: str | None = None, max_tokens: int = 6000,
+                 n: int = 1, temperature: float = 0.0):
         self.base = (base_url or os.environ.get("LOCAL_LLM_BASE_URL", "http://127.0.0.1:8001/v1")).rstrip("/")
+        self.n, self.temperature = n, temperature
         self.served = model or os.environ.get("LOCAL_LLM_MODEL", "local-judge")
         self.key = os.environ.get("LOCAL_LLM_API_KEY", "")
         self.max_tokens = max_tokens
@@ -205,7 +321,7 @@ class LocalProvider(Provider):
 
     def complete(self, system, user, schema, conv_id, purpose):
         body = {
-            "model": self.served, "temperature": 0, "max_tokens": self.max_tokens,
+            "model": self.served, "temperature": self.temperature, "max_tokens": self.max_tokens, "n": self.n,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "json_schema",
                                 "json_schema": {"name": "cqa_eval", "schema": schema, "strict": True}},
@@ -222,20 +338,62 @@ class LocalProvider(Provider):
             u = js.get("usage", {})
             usage = {"input_tokens": u.get("prompt_tokens", 0), "output_tokens": u.get("completion_tokens", 0)}
             budget.record("local", self.model, usage, purpose, conv_id)
-            text = js["choices"][0]["message"]["content"]
-            text = re.sub(r"^```(?:json)?|```$", "", text.strip()).strip()
-            try:
-                return {"data": json.loads(text), "usage": usage, "cost_usd": 0.0}
-            except json.JSONDecodeError as e:
-                last_err = e
+            datas = []
+            for ch in js["choices"]:
+                text = re.sub(r"^```(?:json)?|```$", "", ch["message"]["content"].strip()).strip()
+                try:
+                    datas.append(json.loads(text))
+                except json.JSONDecodeError as e:
+                    last_err = e
+            if datas:
+                return {"data": datas[0], "samples": datas, "usage": usage, "cost_usd": 0.0}
         raise RuntimeError(f"local model returned invalid JSON twice: {last_err}")
 
 
+class SCLocalProvider(LocalProvider):
+    """Local model with self-consistency: n samples, majority answer per criterion (Wang et al. 2023)."""
+
+    def __init__(self, n: int = 5, temperature: float = 0.7, **kw):
+        super().__init__(n=n, temperature=temperature, **kw)
+        self.model = f"{self.model}@sc{n}"
+
+
+def provider_from_spec(spec: str) -> Provider:
+    """'claude:<model>' | 'local' | 'local_sc5' | 'gemma'"""
+    if spec.startswith("claude:"):
+        return ClaudeProvider(model=spec.split(":", 1)[1])
+    if spec == "local_sc5":
+        return SCLocalProvider()
+    if spec == "gemma":
+        return LocalProvider(base_url=os.environ.get("LOCAL2_LLM_BASE_URL", "http://127.0.0.1:8002/v1"))
+    return LocalProvider()
+
+
 def get_provider(name: str | None = None, model: str | None = None) -> Provider:
-    name = name or os.environ.get("DEFAULT_PROVIDER", "claude")
+    name = name or os.environ.get("DEFAULT_PROVIDER", "router")
     if name == "local":
         return LocalProvider()
+    if name == "local_sc5":
+        return SCLocalProvider()
     return ClaudeProvider(model=model)
+
+
+def majority_sample(samples: list[dict], cid: str, crit: dict) -> tuple[dict, float, dict]:
+    """Pick the majority answer for one criterion and return a sample that gave it (keeps its evidence)."""
+    from collections import Counter
+    answers = [s.get(cid, {}).get("answer") for s in samples]
+    cnt = Counter(a for a in answers if a is not None)
+    if not cnt:
+        return dict(samples[0].get(cid, {})), 0.0, {}
+    ranked = cnt.most_common()
+    top = ranked[0][0]
+    if crit.get("type") == "scale" and len(ranked) > 1 and ranked[1][1] == ranked[0][1]:
+        nums = sorted(float(a) for a in answers if a not in (None, "na"))
+        if nums:
+            med = nums[(len(nums) - 1) // 2]
+            top = str(int(med)) if float(med).is_integer() else str(med)
+    pick = next((s[cid] for s in samples if s.get(cid, {}).get("answer") == top), samples[0].get(cid, {}))
+    return dict(pick), cnt.get(top, 0) / len(answers), dict(cnt)
 
 
 # ------------------------------------------------------------------ validator
@@ -265,6 +423,14 @@ def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
     for k in ("explanation", "na_reason"):
         if f"{k}_ru" in res:
             res[k] = res.pop(f"{k}_ru")
+    sub = active_subchecks(crit)
+    if sub and isinstance(res.get("subchecks"), dict):
+        ruled = RULES[crit["rule"]](res["subchecks"])
+        if ruled in allowed_answers(crit) and ruled != res.get("answer"):
+            res["answer_model"] = res.get("answer")
+            res["answer"] = ruled
+            res.setdefault("validator_notes", [])
+            res["rule_applied"] = True
     turns = conv["turns"]
     n = len(turns)
     errs: list[str] = []
@@ -305,7 +471,9 @@ def validate(crit: dict, res: dict, conv: dict) -> tuple[dict, list[str]]:
     if not (res.get("explanation") or "").strip():
         errs.append("explanation is empty")
 
-    res["validator_notes"] = notes
+    res["validator_notes"] = res.get("validator_notes", []) + notes
+    if res.get("rule_applied"):
+        res["validator_notes"].append(f"ответ вычислен правилом по подвопросам (модель: {res['answer_model']})")
     return res, errs
 
 
