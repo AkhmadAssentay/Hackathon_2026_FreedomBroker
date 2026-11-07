@@ -71,7 +71,14 @@ npm run gold
 
 It compares the model's original answers with the human labels and reports, per criterion and per language: agreement, Cohen's kappa, **false "No"** (the model penalised the operator where a human said "Yes"), **false "Yes"** (a missed problem), N/A mistakes, and the average gap in the total score. See `gold/README.md` for how to label.
 
-Each criterion in the checklist carries an explicit step-by-step evaluation plan in its description (checklist v2), because small models follow explicit plans much better than one-line rules.
+How the evaluation is made reliable on a small local model (details and measurements in `gold/RESULTS.md`):
+
+- **Explicit evaluation plans**: each criterion's description is a step-by-step check, not a one-line rule.
+- **Code checks for crisp rules**: greeting in the client's language, operator name, goodbye and "client left early" are detected in code (RU/KZ/EN); the model only answers what needs understanding.
+- **Sub-questions with locked rules** (`lib/checks.js`) where they measurably helped (identification, closing): the model answers yes/no sub-questions and the criterion's answer is computed by a fixed rule. Editing or replacing a criterion in the UI switches its sub-questions off, so a new criterion is evaluated from its new wording.
+- **Grounded evidence**: quotes are checked against the transcript, and a "yes" about an operator action must cite an operator message.
+- **Call structure from system events**: while the client is on hold, the operator's talk with a colleague is marked internal and not evaluated.
+- **Second opinion** (optional, `JURY_MODEL`, `JURY_SCOPE`): a model of another family re-evaluates (by default only Kazakh dialogs); disagreements are flagged "проверить" for a human reviewer without changing the score.
 
 ## How scoring works
 

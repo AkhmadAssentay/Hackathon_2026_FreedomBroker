@@ -154,7 +154,7 @@
           <td>${i.messages}</td>
           <td>${scorePill(i.total)}</td>
           <td>${i.gross_error ? '<span class="badge b-flag">Да</span>' : i.total !== null ? '<span class="muted">нет</span>' : ''}</td>
-          <td>${i.status === 'error' ? `<span class="badge b-no" title="${esc(i.error)}">Ошибка</span>` : esc(statusLabel[i.status] || i.status)}</td>
+          <td>${i.status === 'error' ? `<span class="badge b-no" title="${esc(i.error)}">Ошибка</span>` : esc(statusLabel[i.status] || i.status)}${i.needs_review ? ` <span class="badge b-open" title="Вторая модель не согласилась по ${i.needs_review} критериям">проверить: ${i.needs_review}</span>` : ''}</td>
           <td>${i.open_appeals ? `<span class="badge b-open">${i.open_appeals} открыто</span>` : ''}</td>
         </tr>`).join('') || '<tr><td colspan="8" class="empty">Ничего не найдено</td></tr>';
       $$('#rows tr.click').forEach((tr) => tr.addEventListener('click', () => (location.hash = `#/dialog/${encodeURIComponent(group)}/${encodeURIComponent(tr.dataset.id)}`)));

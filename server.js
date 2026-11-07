@@ -112,6 +112,8 @@ function summarize(rec, checklistUid) {
     evaluation_id: ev ? ev.id : null,
     total: fin ? fin.total : null,
     gross_error: fin ? fin.gross_error : false,
+    // criteria where the second-opinion model disagreed with the primary one
+    needs_review: fin ? fin.criteria.filter((c) => c.needs_review).length : 0,
     status: ev ? ev.status || 'evaluated' : 'not_evaluated',
     open_appeals: ev ? store.listAppeals({ evaluation_id: ev.id, status: 'open' }).length : 0,
     error: ev ? ev.error || null : null,
