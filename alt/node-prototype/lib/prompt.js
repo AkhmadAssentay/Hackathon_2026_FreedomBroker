@@ -66,33 +66,33 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     if (internal.has(m.idx)) {
       let j = i;
       while (j + 1 < msgs.length && (internal.has(msgs[j + 1].idx) || (msgs[j + 1].speaker === 'system' && internal.has(msgs[j + 2]?.idx)))) j++;
-      lines.push(`[${m.idx}–${msgs[j].idx}] (${j - i + 1} реплик) ВНУТРЕННИЙ разговор оператора с коллегой, клиент на удержании и не слышит — опущен, не оценивается`);
+      lines.push(`[${m.idx + 1}–${msgs[j].idx + 1}] (${j - i + 1} реплик) ВНУТРЕННИЙ разговор оператора с коллегой, клиент на удержании и не слышит — опущен, не оценивается`);
       i = j;
       continue;
     }
     const ts = /^\d{4}-\d{2}-\d{2}T/.test(String(m.timestamp || '')) ? fmtSec(m.offset_sec) : `${m.timestamp ?? ''} (${fmtSec(m.offset_sec)})`;
-    lines.push(`[${m.idx}] ${ts} ${m.speaker}: ${m.text.replace(/\s+/g, ' ')}`);
+    lines.push(`[${m.idx + 1}] ${ts} ${m.speaker}: ${m.text.replace(/\s+/g, ' ')}`);
   }
 
   const factLines = [];
   factLines.push(`Канал: ${record.channel}. Язык диалога: ${LANG_NAMES[record.language] || record.language}.`);
-  if (facts.first_operator_idx !== null) factLines.push(`Первая реплика оператора: [${facts.first_operator_idx}].`);
+  if (facts.first_operator_idx !== null) factLines.push(`Первая реплика оператора: [${facts.first_operator_idx + 1}].`);
   else factLines.push('Оператор в диалоге не отвечал.');
   if (facts.first_response_sec !== null) factLines.push(`Время первой реакции оператора: ${fmtSec(facts.first_response_sec)} (порог ${fmtSec(threshold)}).`);
   if (facts.long_waits.length)
     factLines.push(
       'Паузы ответа оператора длиннее порога: ' +
-        facts.long_waits.map((w) => `[${w.from_idx}]→[${w.to_idx}] ${fmtSec(w.gap_sec)}`).join('; ') +
+        facts.long_waits.map((w) => `[${w.from_idx + 1}]→[${w.to_idx + 1}] ${fmtSec(w.gap_sec)}`).join('; ') +
         '. Проверь, предупреждал ли оператор об ожидании.'
     );
   else factLines.push('Пауз ответа длиннее порога не обнаружено.');
   const d = facts.dialog;
   if (d) {
-    if (d.first_client_facing_operator_idx !== null) factLines.push(`Первая реплика оператора клиенту: [${d.first_client_facing_operator_idx}]. Последняя реплика оператора клиенту: [${d.last_operator_idx}].`);
-    if (d.holds.length) factLines.push(`Клиент на удержании: ${d.holds.map(([a, b]) => `[${a}]–[${b}]`).join(', ')}. Реплики оператора внутри — внутренний разговор с коллегой.`);
-    factLines.push(d.id_confirmed_idx !== null ? `Система подтвердила личность клиента в реплике [${d.id_confirmed_idx}].` : 'Системного сообщения о подтверждении личности нет (проверка могла пройти голосом оператора — смотри реплики).');
-    if (d.closed_by_operator_idx !== null) factLines.push(`Чат закрыл оператор: [${d.closed_by_operator_idx}].`);
-    if (d.ended_by_client_idx !== null) factLines.push(`Разговор завершил клиент или связь прервалась: [${d.ended_by_client_idx}].`);
+    if (d.first_client_facing_operator_idx !== null) factLines.push(`Первая реплика оператора клиенту: [${d.first_client_facing_operator_idx + 1}]. Последняя реплика оператора клиенту: [${d.last_operator_idx + 1}].`);
+    if (d.holds.length) factLines.push(`Клиент на удержании: ${d.holds.map(([a, b]) => `[${a + 1}]–[${b + 1}]`).join(', ')}. Реплики оператора внутри — внутренний разговор с коллегой.`);
+    factLines.push(d.id_confirmed_idx !== null ? `Система подтвердила личность клиента в реплике [${d.id_confirmed_idx + 1}].` : 'Системного сообщения о подтверждении личности нет (проверка могла пройти голосом оператора — смотри реплики).');
+    if (d.closed_by_operator_idx !== null) factLines.push(`Чат закрыл оператор: [${d.closed_by_operator_idx + 1}].`);
+    if (d.ended_by_client_idx !== null) factLines.push(`Разговор завершил клиент или связь прервалась: [${d.ended_by_client_idx + 1}].`);
   }
 
   const user = [
@@ -103,7 +103,7 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     factLines.join('\n'),
     '',
     `# Транскрипт ${record.conversation_id}`,
-    'Формат: [номер] метка_времени (смещение от начала; у звонков только смещение) роль: текст',
+    'Формат: [номер реплики, с 1] метка_времени (смещение от начала; у звонков только смещение) роль: текст',
     lines.join('\n'),
     '',
     'Верни JSON.',

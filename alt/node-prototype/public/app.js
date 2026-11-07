@@ -335,7 +335,7 @@
           ${isCall ? `<div class="audio"><div class="small muted" style="margin-bottom:6px">Запись звонка</div>${rec.audio_url ? `<audio id="aud" controls preload="metadata" src="${esc(audioSrc)}"></audio><div class="small"><a href="${esc(rec.audio_url)}" target="_blank" rel="noopener">Открыть запись в новой вкладке ↗</a></div>` : rec.audio_withheld ? '<span class="muted">Запись звонка в публичной версии не публикуется (реальный голос клиента) — она доступна при локальном запуске.</span>' : '<span class="muted">Ссылка на запись отсутствует</span>'}</div>` : ''}
           ${msgs.map((m) => `
             <div class="msg ${esc(m.speaker)}" id="m-${m.idx}">
-              <div class="n">${m.idx}</div>
+              <div class="n">${m.idx + 1}</div>
               <div><div class="who">${esc(m.speaker)} <span class="ts">${fmtTs(m)}</span>${isCall && rec.audio_url && m.off !== null ? `<button class="play" data-off="${m.off}">▶ слушать</button>` : ''}</div>
               <div class="txt">${esc(m.text)}</div></div>
             </div>`).join('')}
@@ -447,8 +447,8 @@
           <div class="pts">${pts}</div>
         </div>
         <div class="expl">${r.answer === 'na' ? '<b>N/A: </b>' : ''}${esc(o && r.overridden ? o.explanation : r.explanation)}</div>
-        <div>${r.evidence.map((e) => `<button class="ev ${e.verified ? '' : 'unv'}" data-goto="${e.msg}" ${range ? `data-range='${range}'` : ''} title="${e.verified ? 'Перейти к реплике' : 'Цитата не найдена дословно'}"><span class="i">[${e.msg}]</span><span>${esc(e.speaker || '')} · «${esc(e.quote.length > 140 ? e.quote.slice(0, 140) + '…' : e.quote)}»</span></button>`).join('')}
-          ${r.checked_range ? `<button class="ev" data-goto="${r.checked_range[0]}" data-range='${range}' title="Проверенный участок"><span class="i">⟷</span><span>проверенный участок [${r.checked_range[0]}–${r.checked_range[1]}]</span></button>` : ''}
+        <div>${r.evidence.map((e) => `<button class="ev ${e.verified ? '' : 'unv'}" data-goto="${e.msg}" ${range ? `data-range='${range}'` : ''} title="${e.verified ? 'Перейти к реплике' : 'Цитата не найдена дословно'}"><span class="i">[${e.msg + 1}]</span><span>${esc(e.speaker || '')} · «${esc(e.quote.length > 140 ? e.quote.slice(0, 140) + '…' : e.quote)}»</span></button>`).join('')}
+          ${r.checked_range ? `<button class="ev" data-goto="${r.checked_range[0]}" data-range='${range}' title="Проверенный участок"><span class="i">⟷</span><span>проверенный участок [${r.checked_range[0] + 1}–${r.checked_range[1] + 1}]</span></button>` : ''}
         </div>
         ${(r.warnings || []).filter((w) => !/^Эвристика/.test(w)).map((w) => `<div class="warn">⚠ ${esc(w)}</div>`).join('')}
         ${ov ? `<div class="override">Исходно: <b>${esc(answerText(o.answer))}</b>${o.points !== null && o.points !== undefined ? ` (${o.points} балл.)` : ''} → решение проверяющего: <b>${esc(answerText(r.answer))}</b>. Причина: ${esc(ov.reason)} <span class="muted">— ${esc(ov.reviewer)}</span></div>` : ''}
@@ -663,8 +663,8 @@
             <div class="cmp"><div>Исходная оценка<b>${esc(answerText(a.disputed_answer))}</b></div><div>Решение<b>${esc(answerText(a.decision.answer))}</b>${esc(a.decision.reason)}</div><div>Итог<b>${a.decision.total_before} → ${a.decision.total_after}</b>${esc(a.decision.reviewer)} · ${new Date(a.decision.decided_at).toLocaleString()}</div></div>`}
         </div>
         <div>
-          <div class="small muted" style="margin-bottom:6px">Фрагмент диалога [${lo}–${hi}] · выделены реплики-доказательства</div>
-          <div class="frag">${msgs.slice(lo, hi + 1).map((m, k) => { const i = lo + k; return `<div class="msg ${esc(m.speaker)} ${hl.has(i) ? 'focus' : ''}"><div class="n">${i}</div><div><div class="who">${esc(m.speaker)} <span class="ts">${esc(m.timestamp)}</span></div><div class="txt">${esc(m.text)}</div></div></div>`; }).join('')}</div>
+          <div class="small muted" style="margin-bottom:6px">Фрагмент диалога [${lo + 1}–${hi + 1}] · выделены реплики-доказательства</div>
+          <div class="frag">${msgs.slice(lo, hi + 1).map((m, k) => { const i = lo + k; return `<div class="msg ${esc(m.speaker)} ${hl.has(i) ? 'focus' : ''}"><div class="n">${i + 1}</div><div><div class="who">${esc(m.speaker)} <span class="ts">${esc(m.timestamp)}</span></div><div class="txt">${esc(m.text)}</div></div></div>`; }).join('')}</div>
         </div>`;
       box.appendChild(el);
       const dec = $('#dec-' + a.id, el);

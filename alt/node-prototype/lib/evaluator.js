@@ -1,6 +1,6 @@
 'use strict';
 const { indexTranscript, timingFacts, dialogFacts, normText } = require('./transcript');
-const { usesChecks, applyLogic, DETECTORS, codeOnly } = require('./checks');
+const { usesChecks, applyLogic, DETECTORS, codeOnly, codeRulesActive } = require('./checks');
 const { buildPrompt } = require('./prompt');
 const llm = require('./llm');
 const { score } = require('./scoring');
@@ -96,7 +96,15 @@ function toVerdicts(json, checklist, msgs, facts) {
   {
     const raw = json.criteria;
     const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.entries(raw).map(([id, v]) => ({ ...v, id })) : [];
-    for (const item of list) if (item && item.id) verdicts[item.id] = item;
+    // The model sees and cites messages numbered from 1 (as in the results format); store 0-based indices.
+    const toIdx = (n) => (Number.isInteger(Number(n)) && n !== null && n !== '' ? Number(n) - 1 : n);
+    for (const item of list) {
+      if (!item || !item.id) continue;
+      if (Array.isArray(item.evidence)) item.evidence = item.evidence.map((e) => ({ ...e, msg: toIdx(e.msg) }));
+      if (Array.isArray(item.checked_range)) item.checked_range = item.checked_range.map(toIdx);
+      if (item.checks && typeof item.checks === 'object') for (const k of Object.keys(item.checks)) if (item.checks[k]) item.checks[k] = { ...item.checks[k], msg: Number.isInteger(item.checks[k].msg) ? item.checks[k].msg - 1 : item.checks[k].msg };
+      verdicts[item.id] = item;
+    }
     for (const c of checklist.criteria) {
       if (!verdicts[c.id] && codeOnly(c)) verdicts[c.id] = { explanation: '', evidence: [] }; // decided by code below
       if (!verdicts[c.id]) verdicts[c.id] = { answer: null, explanation: 'Модель не вернула оценку по критерию.', warnings: ['Нет ответа модели'] };
@@ -119,17 +127,41 @@ function toVerdicts(json, checklist, msgs, facts) {
             const ok = q.evidence_from === 'first_operator' ? a.msg === d.first_client_facing_operator_idx : opIdx.has(a.msg);
             if (!ok) {
               answers[q.id] = 'no';
-              v.warnings = [...(v.warnings || []), `«${q.label || q.id}»: модель сослалась на [${a.msg}], это не ${q.evidence_from === 'first_operator' ? 'первая реплика оператора' : 'реплика оператора клиенту'} — засчитано «нет»`];
+              v.warnings = [...(v.warnings || []), `«${q.label || q.id}»: модель сослалась на [${a.msg + 1}], это не ${q.evidence_from === 'first_operator' ? 'первая реплика оператора' : 'реплика оператора клиенту'} — засчитано «нет»`];
             }
           }
-          parts.push(`${q.label || q.id} — ${answers[q.id] === 'yes' ? 'да' : 'нет'}${Number.isInteger(a.msg) ? ` [${a.msg}]` : ''}${a.by_code ? ' (проверено кодом)' : ''}`);
+          parts.push(`${q.label || q.id} — ${answers[q.id] === 'yes' ? 'да' : 'нет'}${Number.isInteger(a.msg) ? ` [${a.msg + 1}]` : ''}${a.by_code ? ' (проверено кодом)' : ''}`);
           if (Number.isInteger(a.msg) && msgs[a.msg] && !v.evidence.some((e) => Number(e.msg) === a.msg)) v.evidence.push({ msg: a.msg, quote: '' });
         }
         v.answer = applyLogic(c, answers);
         v.check_answers = answers;
         v.explanation = `${v.explanation || ''}${v.explanation ? ' ' : ''}Проверки: ${parts.join('; ')}.`;
       }
+      // Guard: "yes" for needs discovery requires a real clarifying question from the operator.
+      if (codeRulesActive(c) && (c.guards || []).includes('yes_needs_operator_question') && String(v.answer).toLowerCase() === 'yes') {
+        const q = DETECTORS.operator_clarifying_question(msgs, facts.dialog);
+        if (q.answer !== 'yes') {
+          v.answer = c.na_allowed ? 'na' : 'no';
+          v.warnings = [...(v.warnings || []), 'Оператор не задал ни одного уточняющего вопроса — «Да» невозможно; данных хватало, поставлено N/A'];
+          v.explanation = `${v.explanation || ''} (Уточняющих вопросов оператора нет: запрос был понятен сразу — N/A.)`.trim();
+        }
+      }
     }
+  }
+
+  // Cross-criterion rules from the checklist (e.g. account data disclosed without identification is also a
+  // gross error). Active only while both criteria keep the wording the rule was written for.
+  for (const rule of (checklist.settings && checklist.settings.cross_rules) || []) {
+    const from = checklist.criteria.find((c) => c.id === rule.from);
+    const to = checklist.criteria.find((c) => c.id === rule.set.criterion);
+    const vf = verdicts[rule.from], vt = verdicts[rule.set.criterion];
+    if (!codeRulesActive(from) || !codeRulesActive(to) || !vf || !vt || !vf.check_answers) continue;
+    const match = Object.entries(rule.when_checks).every(([k, val]) => vf.check_answers[k] === val);
+    if (!match || String(vt.answer) === String(rule.set.answer)) continue;
+    vt.answer = rule.set.answer;
+    vt.explanation = `${rule.reason} ${vt.explanation || ''}`.trim();
+    vt.evidence = [...(Array.isArray(vt.evidence) ? vt.evidence : []), ...(vf.evidence || []).filter((e) => !(vt.evidence || []).some((x) => Number(x.msg) === Number(e.msg)))];
+    vt.warnings = [...(vt.warnings || []), `Установлено правилом по критерию ${from.code || from.id}`];
   }
 
   return verdicts;

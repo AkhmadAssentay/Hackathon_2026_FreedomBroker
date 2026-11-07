@@ -72,3 +72,18 @@ test('sub-questions switch off when the criterion wording is changed in the UI',
   assert.equal(usesChecks({ ...c, description: 'Да — оператор отправил ссылку на опрос.' }), false);
   assert.equal(usesChecks({ ...c, name: 'Новый критерий' }), false);
 });
+
+test('identification: verified then handled -> yes; nothing sensitive, no check -> N/A; disclosed unverified -> no', () => {
+  const c03 = { na_allowed: true, logic: { na_if_none: ['sensitive', 'verified_before', 'system_verified'], yes_if_any: ['verified_before', 'system_verified'], default: 'no' } };
+  assert.equal(applyLogic(c03, { sensitive: 'no', verified_before: 'no', system_verified: 'no' }), 'na');
+  assert.equal(applyLogic(c03, { sensitive: 'yes', verified_before: 'no', system_verified: 'no' }), 'no');
+  assert.equal(applyLogic(c03, { sensitive: 'no', verified_before: 'no', system_verified: 'yes' }), 'yes');
+  assert.equal(applyLogic(c03, { sensitive: 'yes', verified_before: 'yes', system_verified: 'no' }), 'yes');
+});
+
+test('a clarifying question is not «чем могу помочь?» or «остались вопросы?»', () => {
+  let x = dlg([['client', 'Где отчёт?'], ['operator', 'Здравствуйте! Чем могу помочь?'], ['operator', 'Остались ли у вас вопросы?']]);
+  assert.equal(DETECTORS.operator_clarifying_question(x.msgs, x.d).answer, 'no');
+  x = dlg([['client', 'Не работает вывод'], ['operator', 'Какое сообщение вы видите в приложении?']]);
+  assert.equal(DETECTORS.operator_clarifying_question(x.msgs, x.d).answer, 'yes');
+});
