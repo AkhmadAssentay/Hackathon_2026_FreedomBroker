@@ -61,6 +61,18 @@ Cloud alternatives: set one key in `.env`. The provider is auto-detected from th
 One evaluation = **one LLM call** for all criteria, about 3–6k input tokens and under 1.5k output tokens.
 Set `PRICE_INPUT_PER_MTOK` / `PRICE_OUTPUT_PER_MTOK` to see the exact cost of each evaluation and batch in the UI.
 
+## Measuring quality against human labels
+
+`gold/` holds a 20-dialog gold set from DEV (7 RU, 5 KZ, 5 EN chats and 3 calls) for the team to label by hand, plus a report script:
+
+```bash
+npm run gold
+```
+
+It compares the model's original answers with the human labels and reports, per criterion and per language: agreement, Cohen's kappa, **false "No"** (the model penalised the operator where a human said "Yes"), **false "Yes"** (a missed problem), N/A mistakes, and the average gap in the total score. See `gold/README.md` for how to label.
+
+Each criterion in the checklist carries an explicit step-by-step evaluation plan in its description (checklist v2), because small models follow explicit plans much better than one-line rules.
+
 ## How scoring works
 
 The LLM **only returns verdicts** (yes / no / na / scale step + explanation + quotes). All arithmetic is done
