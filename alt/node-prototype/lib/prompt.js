@@ -59,7 +59,22 @@ function buildPrompt({ checklist, record, msgs, facts }) {
   const crit = checklist.criteria.map(describeCriterion).join('\n\n');
 
   const internal = new Set((facts.dialog && facts.dialog.internal_idx) || []);
-  const lines = msgs.map((m) => `[${m.idx}] ${m.timestamp ?? ''} (${fmtSec(m.offset_sec)}) ${m.speaker}${internal.has(m.idx) ? ' ВНУТРЕННИЙ (клиент не слышит)' : ''}: ${m.text.replace(/\s+/g, ' ')}`);
+  // Keep the prompt compact (hosted models have per-request token limits): calls show the offset from
+  // the start instead of the full ISO timestamp, and the operator's internal talk with a colleague while
+  // the client is on hold is collapsed into one line. Message numbers stay the same.
+  const lines = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (internal.has(m.idx)) {
+      let j = i;
+      while (j + 1 < msgs.length && (internal.has(msgs[j + 1].idx) || (msgs[j + 1].speaker === 'system' && internal.has(msgs[j + 2]?.idx)))) j++;
+      lines.push(`[${m.idx}–${msgs[j].idx}] (${j - i + 1} реплик) ВНУТРЕННИЙ разговор оператора с коллегой, клиент на удержании и не слышит — опущен, не оценивается`);
+      i = j;
+      continue;
+    }
+    const ts = /^\d{4}-\d{2}-\d{2}T/.test(String(m.timestamp || '')) ? fmtSec(m.offset_sec) : `${m.timestamp ?? ''} (${fmtSec(m.offset_sec)})`;
+    lines.push(`[${m.idx}] ${ts} ${m.speaker}: ${m.text.replace(/\s+/g, ' ')}`);
+  }
 
   const factLines = [];
   factLines.push(`Канал: ${record.channel}. Язык диалога: ${LANG_NAMES[record.language] || record.language}.`);
@@ -90,7 +105,7 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     factLines.join('\n'),
     '',
     `# Транскрипт ${record.conversation_id}`,
-    'Формат: [номер] метка_времени (смещение) роль: текст',
+    'Формат: [номер] метка_времени (смещение от начала; у звонков только смещение) роль: текст',
     lines.join('\n'),
     '',
     'Верни JSON.',
