@@ -11,9 +11,12 @@ const { score } = require('../lib/scoring');
 const ROOT = path.join(__dirname, '..');
 const GOLD_FILE = process.env.GOLD_FILE || path.join(ROOT, 'gold', 'gold_labels.csv');
 const DB_FILE = path.join(process.env.DATA_DIR || path.join(ROOT, 'data'), 'db.json');
-const OUT_FILE = path.join(path.dirname(GOLD_FILE), 'report.md');
 
-const argUid = (() => { const i = process.argv.indexOf('--checklist'); return i > 0 ? process.argv[i + 1] : null; })();
+
+const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
+const argUid = arg('--checklist');
+// --split dev|test: tune on dev, report the honest number on test (gold/splits.json).
+const argSplit = arg('--split');
 
 function readCsv(file) {
   const text = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
@@ -58,7 +61,13 @@ function main() {
   const checklist = db.checklists.find((c) => c.uid === uid);
   if (!checklist) throw new Error(`Чек-лист ${uid} не найден`);
 
-  const gold = readCsv(GOLD_FILE).filter((row) => checklist.criteria.some((c) => canon(row[c.id]) !== null));
+  let gold = readCsv(GOLD_FILE).filter((row) => checklist.criteria.some((c) => canon(row[c.id]) !== null));
+  if (argSplit) {
+    const splits = JSON.parse(fs.readFileSync(path.join(ROOT, 'gold', 'splits.json'), 'utf8'));
+    if (!splits[argSplit]) throw new Error(`Нет выборки ${argSplit} в gold/splits.json`);
+    gold = gold.filter((row) => splits[argSplit].includes(row.conversation_id));
+  }
+  const OUT_FILE = path.join(path.dirname(GOLD_FILE), `report${argSplit ? '_' + argSplit : ''}${argUid ? '_' + argUid.replace(/[^\w.-]/g, '_') : ''}.md`);
   const latest = {};
   for (const e of db.evaluations) {
     if (e.checklist_uid !== uid || e.status === 'error' || !e.result) continue;
@@ -106,7 +115,7 @@ function main() {
 
   const L = [];
   L.push(`# Сравнение с эталонной разметкой`, '');
-  L.push(`Чек-лист: \`${uid}\`. Модель: \`${(Object.values(latest)[0] || {}).meta?.model || '?'}\`. Размечено диалогов: ${gold.length}, из них оценено моделью: ${gold.length - missing.length}.`);
+  L.push(`${argSplit ? `Выборка: **${argSplit}**. ` : ''}Чек-лист: \`${uid}\`. Модель: \`${(Object.values(latest)[0] || {}).meta?.model || '?'}\`. Размечено диалогов: ${gold.length}, из них оценено моделью: ${gold.length - missing.length}.`);
   if (missing.length) L.push('', `Не оценены моделью (оцените их в приложении): ${missing.join(', ')}`);
   L.push('', '## По критериям', '');
   L.push('| Критерий | n | Совпадение | Каппа | Ложное «Нет» | Ложное «Да» | Ошибки N/A | Шкала: ниже / выше человека |');

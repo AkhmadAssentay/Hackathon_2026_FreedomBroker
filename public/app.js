@@ -468,6 +468,9 @@
             </div>
           </div>
           <label class="f">Правило оценки (что считать «Да» / как ставить баллы)<textarea data-k="description">${esc(c.description || '')}</textarea></label>
+          ${Array.isArray(c.checks) && c.checks.length ? (c.checks_signature === [c.name, c.type, String(c.description || '').trim()].join('|')
+            ? `<div class="small muted">Подвопросы: ${c.checks.length} (${c.checks.map((q) => esc(q.label || q.id)).join(' · ')}). Модель отвечает на них, итог считается по правилу.</div>`
+            : '<div class="small muted">Формулировка изменена — подвопросы отключены, критерий оценивается напрямую по новому правилу.</div>') : ''}
           <div class="g2">
             <label class="row small" style="gap:6px"><input type="checkbox" data-k="na_allowed" ${c.na_allowed ? 'checked' : ''} ${c.type === 'flag' ? 'disabled' : ''}> N/A допустим</label>
             ${c.na_allowed ? `<label class="f">Условие N/A<input type="text" data-k="na_condition" value="${esc(c.na_condition || '')}"></label>` : '<div></div>'}
