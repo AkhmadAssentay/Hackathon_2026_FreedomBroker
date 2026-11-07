@@ -141,3 +141,19 @@ node scripts/export_snapshot.js --group DEV # writes public/snapshot.json (voice
 ```
 
 Voice calls are real customer conversations and are left out by default; `--include-calls` adds them. The repository root `vercel.json` publishes `alt/node-prototype/public`, and Vercel redeploys on every push to `main`.
+
+## Online mode (Vercel + MongoDB Atlas + Groq)
+
+The same app runs fully online: the UI is served from `public/`, the API runs as a Vercel serverless function (`api/index.js` at the repository root), data lives in MongoDB Atlas, and evaluations use Groq's hosted models.
+
+1. **MongoDB Atlas**: create a free M0 cluster, a database user, and allow network access from `0.0.0.0/0` (Vercel uses changing addresses). Copy the `mongodb+srv://…` connection string.
+2. **Groq**: create an API key at console.groq.com.
+3. **Locally**, put both into `alt/node-prototype/.env` (`MONGODB_URI=…`, `GROQ_API_KEY=…`, optional `LLM_MODEL`), then upload the existing local results:
+   ```bash
+   node scripts/migrate_to_mongo.js
+   ```
+4. **On Vercel** (Project → Settings → Environment Variables): `MONGODB_URI`, `GROQ_API_KEY`, optionally `MONGODB_DB` (default `cqa`), `LLM_MODEL`, `PRICE_INPUT_PER_MTOK`, `PRICE_OUTPUT_PER_MTOK`. Redeploy.
+
+Online, "Оценить все" runs from the browser (one dialog per request, two at a time): keep the tab open until it finishes. Loading a new `group_id`, uploading a JSON file, evaluating, re-evaluating, appeals and checklist edits all work online and are stored in MongoDB. If the API is unavailable (for example, the environment variables are missing), the site falls back to the read-only snapshot.
+
+Storage is chosen automatically: MongoDB when `MONGODB_URI` is set, otherwise JSON files in `data/`.

@@ -217,10 +217,41 @@
     async function startBatch(onlyMissing) {
       try {
         const job = await api('/evaluate-batch', { method: 'POST', body: { group_id: group, only_missing: onlyMissing } });
+        if (job.client_side) return runClientBatch(job);
         if (!job.total) return toast('Нечего оценивать — всё уже оценено');
         LS.set('job', { id: job.id, group });
         pollJob(job.id);
       } catch (e) { toast(e.message, true); }
+    }
+    // Online (serverless) mode: the browser evaluates the dialogs one by one, two at a time.
+    async function runClientBatch(job) {
+      const ids = job.conversation_ids;
+      if (!ids.length) return toast('Нечего оценивать — всё уже оценено');
+      let done = 0;
+      const errors = [];
+      let cost = 0;
+      const show = () => {
+        const el = $('#job');
+        if (!el) return;
+        const pct = Math.round((done / ids.length) * 100);
+        el.innerHTML = `<div class="progress"><i style="width:${pct}%"></i></div> ${done}/${ids.length}${errors.length ? ` · <span style="color:var(--bad)">ошибок ${errors.length}</span>` : ''}${cost ? ` · $${cost.toFixed(4)}` : ''} · не закрывайте вкладку`;
+      };
+      show();
+      let next = 0;
+      const worker = async () => {
+        while (next < ids.length) {
+          const id = ids[next++];
+          try {
+            const ev = await api('/evaluate', { method: 'POST', body: { conversation_id: id, group_id: job.group_id, checklist_uid: job.checklist_uid } });
+            if (ev.meta && ev.meta.cost_usd) cost += ev.meta.cost_usd;
+          } catch (e) { errors.push({ id, error: e.message }); }
+          done++;
+          show();
+        }
+      };
+      await Promise.all([worker(), worker()]);
+      toast(`Оценка завершена: ${done - errors.length} успешно${errors.length ? ', ошибок: ' + errors.length + ' (' + errors[0].error.slice(0, 80) + ')' : ''}`, errors.length > 0);
+      router();
     }
     function pollJob(jobId) {
       clearInterval(pollTimer);

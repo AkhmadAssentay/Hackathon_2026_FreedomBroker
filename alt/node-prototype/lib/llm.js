@@ -1,10 +1,12 @@
 'use strict';
 // Provider-agnostic LLM call. Zero dependencies: uses global fetch (Node 18+).
-// Provider is chosen by LLM_PROVIDER = anthropic | openai | gemini | rules.
+// Provider is chosen by LLM_PROVIDER = anthropic | openai | groq | gemini | rules.
 
 const DEFAULT_MODELS = {
   anthropic: 'claude-sonnet-5-5',
   openai: 'gpt-4.1-mini',
+  // Groq: fast hosted open models behind an OpenAI-compatible API (override with LLM_MODEL)
+  groq: 'openai/gpt-oss-120b',
   gemini: 'gemini-2.5-flash',
 };
 
@@ -22,6 +24,7 @@ function config() {
 
 function autodetect() {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
+  if (process.env.GROQ_API_KEY) return 'groq';
   if (process.env.OPENAI_API_KEY) return 'openai';
   if (process.env.GEMINI_API_KEY) return 'gemini';
   return 'rules';
@@ -38,7 +41,12 @@ async function postJson(url, headers, body, timeoutMs = Number(process.env.LLM_T
       signal: ctrl.signal,
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`LLM HTTP ${res.status}: ${text.slice(0, 500)}`);
+    if (!res.ok) {
+      const err = new Error(`LLM HTTP ${res.status}: ${text.slice(0, 500)}`);
+      err.status = res.status;
+      err.retryAfterSec = Number(res.headers.get('retry-after')) || null;
+      throw err;
+    }
     return JSON.parse(text);
   } finally {
     clearTimeout(t);
@@ -58,26 +66,34 @@ async function callAnthropic({ system, user, schema }, model) {
   return { text, usage: { input: data.usage?.input_tokens || 0, output: data.usage?.output_tokens || 0 } };
 }
 
-async function callOpenAI({ system, user, schema }, model) {
-  const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-  const data = await postJson(
-    `${base}/chat/completions`,
-    { authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    {
-      model,
-      temperature: 0,
-      response_format: schema ? { type: 'json_schema', json_schema: { name: 'evaluation', strict: true, schema } } : { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }
-  );
+// OpenAI-compatible chat completions (OpenAI, Groq, Ollama, vLLM).
+async function chatCompletions(base, key, { system, user, schema }, model) {
+  const body = (format) => ({
+    model,
+    temperature: 0,
+    response_format: format,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+  let data;
+  try {
+    data = await postJson(`${base}/chat/completions`, { authorization: `Bearer ${key}` },
+      body(schema ? { type: 'json_schema', json_schema: { name: 'evaluation', strict: true, schema } } : { type: 'json_object' }));
+  } catch (e) {
+    // Some hosted models do not support strict JSON schemas: fall back to plain JSON mode.
+    if (!(schema && e.status === 400)) throw e;
+    data = await postJson(`${base}/chat/completions`, { authorization: `Bearer ${key}` }, body({ type: 'json_object' }));
+  }
   return {
     text: data.choices?.[0]?.message?.content || '',
     usage: { input: data.usage?.prompt_tokens || 0, output: data.usage?.completion_tokens || 0 },
   };
 }
+
+const callOpenAI = (prompt, model) => chatCompletions(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1', process.env.OPENAI_API_KEY, prompt, model);
+const callGroq = (prompt, model) => chatCompletions(process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1', process.env.GROQ_API_KEY, prompt, model);
 
 async function callGemini({ system, user }, model) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
@@ -108,7 +124,7 @@ function extractJson(text) {
 
 async function complete(prompt, { model } = {}) {
   const cfg = config();
-  const fn = { anthropic: callAnthropic, openai: callOpenAI, gemini: callGemini }[cfg.provider];
+  const fn = { anthropic: callAnthropic, openai: callOpenAI, groq: callGroq, gemini: callGemini }[cfg.provider];
   if (!fn) throw new Error(`Неизвестный LLM_PROVIDER: ${cfg.provider}`);
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -121,7 +137,10 @@ async function complete(prompt, { model } = {}) {
       return { json, usage: r.usage, cost_usd: costUsd, model: model || cfg.model, provider: cfg.provider, local: isLocal() };
     } catch (e) {
       lastErr = e;
-      await new Promise((res) => setTimeout(res, 1500 * (attempt + 1)));
+      if (e.status && e.status >= 400 && e.status < 500 && e.status !== 429) break; // bad request / auth: retrying will not help
+      // Rate limits (free Groq tier): wait as long as the API asks, capped.
+      const waitMs = e.status === 429 ? Math.min((e.retryAfterSec || 10) * 1000, 60000) : 1500 * (attempt + 1);
+      await new Promise((res) => setTimeout(res, waitMs));
     }
   }
   throw lastErr;
