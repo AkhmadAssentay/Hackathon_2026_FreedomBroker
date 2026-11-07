@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo 'No install step: static read-only demo'",
+  "buildCommand": "echo 'No build step: serves alt/node-prototype/public'",
+  "outputDirectory": "alt/node-prototype/public"
+}

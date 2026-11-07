@@ -8,7 +8,27 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (sel, el = root) => el.querySelector(sel);
   const $$ = (sel, el = root) => Array.from(el.querySelectorAll(sel));
+  // Read-only demo mode: when there is no backend (static hosting such as Vercel), the UI shows a saved
+  // snapshot of evaluated results (public/snapshot.json, made by scripts/export_snapshot.js).
+  let SNAPSHOT = null;
+  const modeReady = (async () => {
+    try {
+      const r = await fetch(API + '/config');
+      if (r.ok && (r.headers.get('content-type') || '').includes('json')) return;
+    } catch { /* no backend */ }
+    try {
+      const r = await fetch('snapshot.json');
+      if (r.ok) SNAPSHOT = await r.json();
+    } catch { /* no snapshot either */ }
+  })();
   async function api(path, opts = {}) {
+    await modeReady;
+    if (SNAPSHOT) {
+      if (opts.method && opts.method !== 'GET') throw new Error('Демо-версия только для просмотра. Оценка, апелляции и изменение чек-листа работают при локальном запуске (npm start).');
+      const v = SNAPSHOT.responses[path];
+      if (v === undefined) throw new Error('Этих данных нет в демо-версии');
+      return JSON.parse(JSON.stringify(v));
+    }
     const res = await fetch(API + path, {
       method: opts.method || 'GET',
       headers: opts.body ? { 'content-type': 'application/json' } : {},
@@ -60,6 +80,7 @@
           <span class="chip-dark" title="Модель оценки">${c.provider === 'rules' ? 'Эвристика (без LLM)' : esc(c.provider + ' · ' + c.model)}</span>
         </div>
       </header>
+      ${SNAPSHOT ? `<div class="demo-banner">Демо-версия только для просмотра: сохранённые результаты оценки ${c.snapshot ? c.snapshot.conversations : ''} чатов набора ${esc(c.snapshot ? c.snapshot.group_id : '')} (модель ${esc(c.model || '')}, чек-лист ${esc(c.active_checklist || '')}, ${c.snapshot ? new Date(c.snapshot.created_at).toLocaleDateString('ru-RU') : ''}). Записи звонков в демо не публикуются. Оценка, апелляции и изменение чек-листа работают при локальном запуске.</div>` : ''}
       <main>${inner}</main>`;
   }
 
@@ -130,7 +151,7 @@
           <div id="job" class="row small"></div>
           <button class="btn" id="evalMissing">Оценить неоценённые</button>
           <button class="btn primary" id="evalAll">Оценить все</button>
-          <a class="btn" href="${API}/export?group_id=${encodeURIComponent(group)}" target="_blank">Экспорт JSON</a>
+          <a class="btn" href="${SNAPSHOT ? 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(SNAPSHOT.responses['/export?group_id=' + encodeURIComponent(group)] || [])) : `${API}/export?group_id=${encodeURIComponent(group)}`}" ${SNAPSHOT ? `download="cqa_${esc(group)}.json"` : 'target="_blank"'}>Экспорт JSON</a>
         </div>
       </div>
       <div class="row" style="margin-bottom:10px">

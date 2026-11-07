@@ -155,3 +155,7 @@
 .cqa .cmp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; font-size: 12px; }
 .cqa .cmp div { background: #f7f9f8; border-radius: 8px; padding: 8px; }
 .cqa .cmp b { display: block; font-size: 16px; }
+
+/* read-only demo mode (static hosting) */
+.demo-banner { background: #fff4e0; color: #7a4a00; border-bottom: 1px solid #f0d9a8; padding: 8px 20px; font-size: 13px; }
+@media (prefers-color-scheme: dark) { .demo-banner { background: #3a2c12; color: #f3d9a4; border-color: #5a4520; } }

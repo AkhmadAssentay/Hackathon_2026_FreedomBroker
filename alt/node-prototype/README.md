@@ -130,3 +130,14 @@ To embed it as an HTML web resource, upload `index.html`, `styles.css` and `app.
 | POST | `/api/appeals` `{evaluation_id, criterion_id, comment}` | file an appeal |
 | POST | `/api/appeals/:id/decision` `{action: confirm\|change, answer, reason}` | reviewer decision |
 | GET | `/api/export?group_id=` | final results as JSON |
+
+## Read-only web demo (Vercel)
+
+Static hosting has no backend, so the UI falls back to a saved snapshot of evaluated results and shows a "view only" banner; evaluating, appeals and checklist edits need the local server.
+
+```bash
+npm start                                   # local server with evaluated results
+node scripts/export_snapshot.js --group DEV # writes public/snapshot.json (voice calls excluded)
+```
+
+Voice calls are real customer conversations and are left out by default; `--include-calls` adds them. The repository root `vercel.json` publishes `alt/node-prototype/public`, and Vercel redeploys on every push to `main`.
