@@ -58,7 +58,12 @@
   // ------------------------------------------------------------------ app shell
   class CqaApp extends HTMLElement {
     connectedCallback() {
+      (window.CQA.ready || Promise.resolve()).then(() => this.init());
+    }
+    init() {
+      const ro = P().readOnly;
       this.innerHTML = `
+        ${ro ? `<div class="ro-banner">Демо только для просмотра: сохранённые результаты ${esc((window.CQA.snapshotMeta || {}).dialogues || "")} синтетических чатов DEV. Оценка, апелляции и редактор работают при локальном запуске (README).</div>` : ""}
         <header class="top">
           <div class="brand"><span class="logo">CQA</span><span>Оценка качества диалогов</span></div>
           <nav>
@@ -72,6 +77,7 @@
           <div class="controls">
             <label>Набор <select id="group"></select></label>
             <button class="ghost" id="load" title="Загрузить набор по group_id из API организаторов">+ group_id</button>
+            <button class="ghost" id="zoom" title="Крупный режим для проектора">A+</button>
             <label>Модель <select id="provider">
               <option value="router">Sonnet + Qwen (маршрут.)</option><option value="claude">Claude Sonnet 5.5</option><option value="local_sc5">Qwen × 5 (GPU)</option><option value="local">Qwen3.5 (GPU)</option></select></label>
           </div>
@@ -81,6 +87,9 @@
       this.querySelector("#provider").onchange = (e) => { store.provider = e.target.value; localSet("provider", store.provider); };
       this.querySelector("#group").onchange = (e) => { store.group = e.target.value; localSet("group", store.group); this.render(true); };
       this.querySelector("#load").onclick = () => this.loadGroup();
+      const applyZoom = () => { document.documentElement.classList.toggle("present", localGet("present") === "1"); };
+      applyZoom();
+      this.querySelector("#zoom").onclick = () => { localSet("present", localGet("present") === "1" ? "0" : "1"); applyZoom(); };
       window.addEventListener("hashchange", () => this.render());
       this.refreshGroups().then(() => this.render(true));
       P().health().then((h) => {

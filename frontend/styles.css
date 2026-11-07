@@ -202,3 +202,6 @@ nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 60
 .insights .coach { margin-top: 6px; }
 .insights .coach ul { margin: 4px 0 0 18px; padding: 0; }
 .insights .coach.ok { color: var(--good); }
+html.present { zoom: 1.18; }
+html.present .dialogs { height: calc(100vh / 1.18 - 57px); }
+.ro-banner { background: #fdf1e4; color: #7a4a12; font-size: 13px; padding: 6px 16px; border-bottom: 1px solid #efcfae; }

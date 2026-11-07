@@ -51,7 +51,25 @@
     peaks(key) { return this._req(`/api/audio/${encodeURIComponent(key)}/peaks`); }
     audioAnalysis(key) { return this._req(`/api/audio/${encodeURIComponent(key)}/analysis`).catch(() => null); }
   }
+  /* Read-only provider over a static snapshot (scripts/export_snapshot.py) for hosting without a backend. */
+  class SnapshotDataProvider extends RestDataProvider {
+    constructor(snap) { super(""); this.snap = snap; this.readOnly = true; }
+    async _req(path, opts = {}) {
+      if (opts.method && opts.method !== "GET") throw new Error("Демо только для просмотра: изменения доступны при локальном запуске (README).");
+      if (path in this.snap) return JSON.parse(JSON.stringify(this.snap[path]));
+      if (path.startsWith("/metrics.json") || path.startsWith("/experiments.json")) return super._req(path, opts);
+      throw new Error("Нет в демо-снимке: " + path);
+    }
+    audioUrl() { return ""; }
+  }
   window.CQA = window.CQA || {};
   window.CQA.provider = new RestDataProvider();
   window.CQA.RestDataProvider = RestDataProvider;
+  // Use the live API when it answers; otherwise fall back to the static snapshot (read-only demo).
+  window.CQA.ready = fetch("/api/health").then((r) => {
+    if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) throw new Error("no api");
+  }).catch(() => fetch("snapshot.json").then((r) => r.json()).then((snap) => {
+    window.CQA.provider = new SnapshotDataProvider(snap);
+    window.CQA.snapshotMeta = snap._meta;
+  }).catch(() => {}));
 })();

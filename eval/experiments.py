@@ -96,6 +96,10 @@ VARIANTS: dict[str, dict] = {
     # appeals-as-memory: precedents from reviewer decisions on dev errors, evaluated on test only
     "qwen_sc5_mem":    {"provider": "local", "n": 5, "temperature": 0.7, "memory": True, "criteria": ["c4", "c5", "c6"], "partial": True},
     "sonnet_mem":      {"provider": "claude", "model": "claude-sonnet-5-5", "memory": True, "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
+    # how production calls Qwen: only its 3 routed criteria in the prompt; and with 9 votes
+    "qwen_sc5_c456":   {"provider": "local", "n": 5, "temperature": 0.7, "criteria": ["c4", "c5", "c6"], "partial": True},
+    "qwen_sc9_c456":   {"provider": "local", "n": 9, "temperature": 0.7, "criteria": ["c4", "c5", "c6"], "partial": True},
+    "qwen_sc9":        {"provider": "local", "n": 9, "temperature": 0.7},
     # same dev errors, but reasons written as a QA reviewer would (eval/memory_reviewer.json)
     "qwen_sc5_memh":   {"provider": "local", "n": 5, "temperature": 0.7, "memory": "reviewer", "criteria": ["c4", "c5", "c6"], "partial": True},
     "sonnet_memh":     {"provider": "claude", "model": "claude-sonnet-5-5", "memory": "reviewer", "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
@@ -375,9 +379,53 @@ def combine_router(candidates: list[str]) -> dict:
     return out
 
 
+def combine_router_median(base_choice: dict, scale_voters: list[str], scale_crits=("c4", "c6")) -> dict:
+    """Router, but scale criteria take the median of several models (strict Sonnet vs lenient local
+    models tend to cancel out)."""
+    srcs = set(base_choice.values()) | set(scale_voters)
+    runs = {n: load(n) for n in srcs}
+    out = {}
+    for cid in set.intersection(*[set(r) for r in runs.values()]):
+        res = {}
+        for k in CRITS:
+            if k in scale_crits:
+                vals = [runs[n][cid]["results"][k]["answer"] for n in scale_voters]
+                nums = sorted(float(v) for v in vals if v not in (None, "na"))
+                if nums and len(nums) == len(vals):
+                    m = nums[len(nums) // 2]
+                    res[k] = {"answer": str(int(m)) if float(m).is_integer() else str(m)}
+                    continue
+            res[k] = {"answer": runs[base_choice[k]][cid]["results"][k]["answer"]}
+        out[cid] = {"cid": cid, "results": res,
+                    "cost_usd": runs["app:claude-sonnet-5-5"][cid].get("cost_usd", 0) if "app:claude-sonnet-5-5" in runs else 0}
+    return out
+
+
+PROD_CHOICE = {"c1": "app:claude-sonnet-5-5", "c2": "app:claude-sonnet-5-5", "c3": "app:claude-sonnet-5-5",
+               "c4": "qwen_sc5", "c5": "qwen_sc5", "c6": "qwen_sc5", "c7": "app:claude-sonnet-5-5",
+               "c8": "app:claude-sonnet-5-5"}
+
 ROUTER_CHOICES: dict[str, dict] = {}
 
+def combine_parts(parts: dict[str, list[str]]) -> dict:
+    """Assemble full results from per-criterion partial runs: {run_name: [criteria]}."""
+    runs = {n: load(n) for n in parts}
+    out = {}
+    for cid in set.intersection(*[set(r) for r in runs.values()]):
+        res = {}
+        for n, ks in parts.items():
+            for k in ks:
+                res[k] = runs[n][cid]["results"][k]
+        out[cid] = {"cid": cid, "results": res, "cost_usd": sum(runs[n][cid].get("cost_usd", 0) for n in parts)}
+    return out
+
+
 COMBOS = {
+    "router_prod_qwen3crit": lambda: combine_parts({"app:claude-sonnet-5-5": ["c1", "c2", "c3", "c7", "c8"], "qwen_sc5_c456": ["c4", "c5", "c6"]}),
+    "router_qwen3crit_sc9": lambda: combine_parts({"app:claude-sonnet-5-5": ["c1", "c2", "c3", "c7", "c8"], "qwen_sc9_c456": ["c4", "c5", "c6"]}),
+    "router_qwen8crit_sc9": lambda: combine_parts({"app:claude-sonnet-5-5": ["c1", "c2", "c3", "c7", "c8"], "qwen_sc9": ["c4", "c5", "c6"]}),
+    "router_median_scales": lambda: combine_router_median(PROD_CHOICE, ["app:claude-sonnet-5-5", "qwen_sc5", "gemma"]),
+    "router_median_scales_c456": lambda: combine_router_median(PROD_CHOICE, ["app:claude-sonnet-5-5", "qwen_sc5", "gemma"], ("c4", "c5", "c6")),
     "router_sonnet_qwensc5": lambda: combine_router(["app:claude-sonnet-5-5", "qwen_sc5"]),
     "router_sonnet_qwen": lambda: combine_router(["app:claude-sonnet-5-5", "app:local:Qwen3.5-35B-A3B-GPTQ-Int4"]),
     "router_sonnet_qwensc5_haiku": lambda: combine_router(["app:claude-sonnet-5-5", "qwen_sc5", "haiku"]),
