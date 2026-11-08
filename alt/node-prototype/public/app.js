@@ -561,6 +561,14 @@
       if (!file) return;
       try {
         const payload = JSON.parse(await file.text());
+        // results JSON 1.0 (e.g. results/prod/results.json of the final model) -> import as the latest evaluations
+        if (payload && payload.schema_version && Array.isArray(payload.results)) {
+          const cur = new URLSearchParams((location.hash.split('?')[1]) || '').get('group') || LS.get('group', '');
+          const r = await api('/import-results', { method: 'POST', body: { group_id: cur, payload } });
+          toast(`Импортировано оценок: ${r.imported}${r.skipped.length ? ', пропущено: ' + r.skipped.length : ''}`);
+          router();
+          return;
+        }
         const g = $('#gid').value.trim() || payload?.data?.dataset_group_id || file.name.replace(/\.json$/i, '');
         const r = await api('/datasets/upload', { method: 'POST', body: { group_id: g, payload } });
         toast(`Загружено ${r.total} диалогов (${r.group_id})`);

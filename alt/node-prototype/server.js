@@ -254,6 +254,54 @@ route('POST', '/api/datasets/upload', async ({ body }) => {
   return { group_id: g, total: records.length };
 });
 
+// Import results made elsewhere (results JSON 1.0, e.g. the final router Claude Sonnet + Qwen x5) as the
+// newest evaluation of each dialog, so the site shows the latest version. Scores are recomputed by this
+// app's own scoring from the imported answers; evidence turns are 1-based as in the results format.
+const RESULT_CODES = ['contact', 'discovery', 'identification', 'consultation', 'empathy', 'dialogue', 'closure', 'critical'];
+route('POST', '/api/import-results', async ({ body }) => {
+  const payload = body.payload || body;
+  if (!payload || !Array.isArray(payload.results)) throw Object.assign(new Error('Ожидается results JSON 1.0 (поле results)'), { status: 400 });
+  const cl = await pickChecklist(body.checklist_uid);
+  const byCode = {};
+  RESULT_CODES.forEach((code, i) => { if (cl.criteria[i]) byCode[code] = cl.criteria[i].id; });
+  const model = (payload.model && payload.model.name) || 'imported';
+  const groupHint = String(body.group_id || '').trim() || null;
+  let imported = 0;
+  const skipped = [];
+  for (const r of payload.results) {
+    if (!r || (r.status && r.status !== 'ok')) { skipped.push(r && r.conversation_id); continue; }
+    const f = (groupHint && (await store.findConversation(r.conversation_id, groupHint))) || (await store.findConversation(r.conversation_id));
+    if (!f) { skipped.push(r.conversation_id); continue; }
+    const msgs = f.record.transcript || [];
+    const verdicts = {};
+    for (const x of r.criteria || []) {
+      const id = byCode[x.criterion_id] || (cl.criteria.some((c) => c.id === x.criterion_id) ? x.criterion_id : null);
+      if (!id) continue;
+      const turns = (x.evidence_turns || []).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= msgs.length);
+      verdicts[id] = {
+        answer: x.value === null || x.value === undefined ? 'na' : x.value,
+        explanation: x.rationale || '',
+        evidence: turns.map((n) => ({ msg: n - 1, quote: String(msgs[n - 1].text || msgs[n - 1].message || '').slice(0, 200), verified: true })),
+      };
+    }
+    const result = score(cl, verdicts);
+    await store.addEvaluation({
+      conversation_id: r.conversation_id,
+      group_id: f.group_id,
+      checklist_uid: cl.uid,
+      checklist: cl,
+      result,
+      final_result: result,
+      overrides: {},
+      facts: {},
+      meta: { provider: 'router', model, imported: true, source: 'results JSON ' + (payload.schema_version || ''), team: payload.team_name || null },
+      status: 'evaluated',
+    });
+    imported++;
+  }
+  return { imported, skipped, checklist_uid: cl.uid };
+});
+
 // conversations
 route('GET', '/api/conversations', async ({ query }) => {
   const g = query.get('group_id');
