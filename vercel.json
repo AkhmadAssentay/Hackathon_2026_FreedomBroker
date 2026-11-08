@@ -2,13 +2,18 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci --prefix alt/node-prototype --omit=dev",
-  "buildCommand": "rm -rf alt/node-prototype/public/final && cp -R frontend alt/node-prototype/public/final",
-  "outputDirectory": "alt/node-prototype/public",
+  "buildCommand": "rm -rf dist && mkdir dist && cp -R frontend/. dist/ && cp -R frontend dist/final && cp -R alt/node-prototype/public dist/prototype",
+  "outputDirectory": "dist",
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
       "includeFiles": "alt/node-prototype/{checklists,samples}/**"
     }
   },
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ]
 }

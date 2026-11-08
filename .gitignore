@@ -17,3 +17,4 @@ eval/runs/
 
 # built by Vercel from frontend/ (vercel.json)
 alt/node-prototype/public/final/
+dist/

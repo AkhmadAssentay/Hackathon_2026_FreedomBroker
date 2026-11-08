@@ -49,9 +49,14 @@
   }
 
   // ------------------------------------------------------------------ router
+  // Links of the Node prototype's format (#/dialog/DEV/p1-en-001?ev=…, #/dialogs, #/overview) keep working.
+  const LEGACY_VIEWS = { overview: "dash", dialogs: "convs", dialog: "convs", checklists: "checklist" };
   function route() {
-    const h = location.hash.replace(/^#\/?/, "");
-    const [view, ...rest] = h.split("/");
+    const old = location.hash.match(/^#\/dialog\/([^/?]+)\/([^/?]+)/);
+    if (old) history.replaceState(null, "", "#/conv/" + encodeURIComponent(decodeURIComponent(old[1]) + ":" + decodeURIComponent(old[2])));
+    const h = location.hash.replace(/^#\/?/, "").split("?")[0];
+    const [v, ...rest] = h.split("/");
+    const view = LEGACY_VIEWS[v] || v;
     return { view: view || "convs", arg: rest.length ? decodeURIComponent(rest[0]) : null, sub: rest[1] || null };
   }
 
