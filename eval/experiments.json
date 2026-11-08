@@ -687,6 +687,92 @@
    "escalated_share": 0.0
   }
  },
+ "qwen_sc9": {
+  "dev": {
+   "n": 14,
+   "accuracy": 0.8571,
+   "per_criterion": {
+    "c1": 0.929,
+    "c2": 0.571,
+    "c3": 0.929,
+    "c4": 0.857,
+    "c5": 0.929,
+    "c6": 0.786,
+    "c7": 0.857,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.5,
+    "EN": 0.875,
+    "KZ": 0.875,
+    "RU": 0.906
+   },
+   "total_mae": 7.17,
+   "gross": {
+    "tp": 1,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  },
+  "test": {
+   "n": 30,
+   "accuracy": 0.8292,
+   "per_criterion": {
+    "c1": 0.967,
+    "c2": 0.767,
+    "c3": 0.9,
+    "c4": 0.7,
+    "c5": 0.933,
+    "c6": 0.7,
+    "c7": 0.7,
+    "c8": 0.967
+   },
+   "per_language": {
+    "CALL": 0.5,
+    "EN": 0.859,
+    "KZ": 0.839,
+    "RU": 0.856
+   },
+   "total_mae": 8.81,
+   "gross": {
+    "tp": 5,
+    "fn": 1,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  },
+  "all": {
+   "n": 44,
+   "accuracy": 0.8381,
+   "per_criterion": {
+    "c1": 0.955,
+    "c2": 0.705,
+    "c3": 0.909,
+    "c4": 0.75,
+    "c5": 0.932,
+    "c6": 0.727,
+    "c7": 0.75,
+    "c8": 0.977
+   },
+   "per_language": {
+    "CALL": 0.5,
+    "EN": 0.865,
+    "KZ": 0.854,
+    "RU": 0.868
+   },
+   "total_mae": 8.29,
+   "gross": {
+    "tp": 6,
+    "fn": 1,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.0,
+   "escalated_share": 0.0
+  }
+ },
  "app:local:Qwen3.5-35B-A3B-GPTQ-Int4": {
   "dev": {
    "n": 14,
@@ -936,6 +1022,178 @@
     "RU": 0.934
    },
    "total_mae": 5.32,
+   "gross": {
+    "tp": 7,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01807,
+   "escalated_share": 0.0
+  }
+ },
+ "router_qwen3crit_sc9": {
+  "dev": {
+   "n": 14,
+   "accuracy": 0.9018,
+   "per_criterion": {
+    "c1": 0.929,
+    "c2": 0.857,
+    "c3": 1.0,
+    "c4": 0.714,
+    "c5": 0.929,
+    "c6": 0.786,
+    "c7": 1.0,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.938,
+    "KZ": 0.9,
+    "RU": 0.938
+   },
+   "total_mae": 7.32,
+   "gross": {
+    "tp": 1,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01818,
+   "escalated_share": 0.0
+  },
+  "test": {
+   "n": 30,
+   "accuracy": 0.8875,
+   "per_criterion": {
+    "c1": 1.0,
+    "c2": 0.967,
+    "c3": 1.0,
+    "c4": 0.7,
+    "c5": 0.867,
+    "c6": 0.7,
+    "c7": 0.867,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.688,
+    "EN": 0.891,
+    "KZ": 0.893,
+    "RU": 0.913
+   },
+   "total_mae": 7.01,
+   "gross": {
+    "tp": 6,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01802,
+   "escalated_share": 0.0
+  },
+  "all": {
+   "n": 44,
+   "accuracy": 0.892,
+   "per_criterion": {
+    "c1": 0.977,
+    "c2": 0.932,
+    "c3": 1.0,
+    "c4": 0.705,
+    "c5": 0.886,
+    "c6": 0.727,
+    "c7": 0.909,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.667,
+    "EN": 0.906,
+    "KZ": 0.896,
+    "RU": 0.919
+   },
+   "total_mae": 7.11,
+   "gross": {
+    "tp": 7,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01807,
+   "escalated_share": 0.0
+  }
+ },
+ "router_qwen8crit_sc9": {
+  "dev": {
+   "n": 14,
+   "accuracy": 0.9196,
+   "per_criterion": {
+    "c1": 0.929,
+    "c2": 0.857,
+    "c3": 1.0,
+    "c4": 0.857,
+    "c5": 0.929,
+    "c6": 0.786,
+    "c7": 1.0,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.938,
+    "KZ": 0.925,
+    "RU": 0.969
+   },
+   "total_mae": 6.3,
+   "gross": {
+    "tp": 1,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01818,
+   "escalated_share": 0.0
+  },
+  "test": {
+   "n": 30,
+   "accuracy": 0.8958,
+   "per_criterion": {
+    "c1": 1.0,
+    "c2": 0.967,
+    "c3": 1.0,
+    "c4": 0.7,
+    "c5": 0.933,
+    "c6": 0.7,
+    "c7": 0.867,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.891,
+    "KZ": 0.929,
+    "RU": 0.923
+   },
+   "total_mae": 5.54,
+   "gross": {
+    "tp": 6,
+    "fn": 0,
+    "fp": 0
+   },
+   "usd_per_dialogue": 0.01802,
+   "escalated_share": 0.0
+  },
+  "all": {
+   "n": 44,
+   "accuracy": 0.9034,
+   "per_criterion": {
+    "c1": 0.977,
+    "c2": 0.932,
+    "c3": 1.0,
+    "c4": 0.75,
+    "c5": 0.932,
+    "c6": 0.727,
+    "c7": 0.909,
+    "c8": 1.0
+   },
+   "per_language": {
+    "CALL": 0.625,
+    "EN": 0.906,
+    "KZ": 0.927,
+    "RU": 0.934
+   },
+   "total_mae": 5.78,
    "gross": {
     "tp": 7,
     "fn": 0,
