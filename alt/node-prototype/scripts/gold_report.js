@@ -54,9 +54,29 @@ function kappa(pairs) {
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
 const r2 = (x) => (x === null || x === undefined ? '—' : (Math.round(x * 100) / 100).toString());
 
-function main() {
-  if (!fs.existsSync(DB_FILE)) throw new Error(`Нет базы ${DB_FILE}: сначала запустите приложение и оцените диалоги`);
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+// --api <site>: read checklists and the latest evaluations from a running app (e.g. the online
+// Vercel + MongoDB deployment) instead of the local data/db.json.
+async function loadFromApi(site, group) {
+  const base = site.replace(/\/$/, '') + '/api';
+  const get = async (p) => { const r = await fetch(base + p); if (!r.ok) throw new Error(`GET ${p}: HTTP ${r.status}`); return r.json(); };
+  const cls = await get('/checklists');
+  const checklists = [];
+  for (const c of cls.items) checklists.push(await get('/checklists/' + encodeURIComponent(c.uid)));
+  const uid = argUid || cls.active;
+  const list = await get(`/conversations?group_id=${encodeURIComponent(group)}&checklist=${encodeURIComponent(uid)}`);
+  const evaluations = [];
+  for (const i of list.items) if (i.evaluation_id) evaluations.push(await get('/evaluations/' + i.evaluation_id));
+  return { checklists, evaluations, active_checklist: cls.active };
+}
+
+async function main() {
+  const apiSite = arg('--api');
+  let db;
+  if (apiSite) db = await loadFromApi(apiSite, arg('--group') || 'DEV');
+  else {
+    if (!fs.existsSync(DB_FILE)) throw new Error(`Нет базы ${DB_FILE}: сначала запустите приложение и оцените диалоги`);
+    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  }
   const uid = argUid || db.active_checklist;
   const checklist = db.checklists.find((c) => c.uid === uid);
   if (!checklist) throw new Error(`Чек-лист ${uid} не найден`);
@@ -144,4 +164,4 @@ function main() {
   console.log(`Сохранено: ${path.relative(ROOT, OUT_FILE)}`);
 }
 
-try { main(); } catch (e) { console.error('Ошибка:', e.message); process.exit(1); }
+main().catch((e) => { console.error('Ошибка:', e.message); process.exit(1); });

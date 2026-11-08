@@ -48,6 +48,9 @@ test('client left early only when the client ended right after their own message
   assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'yes');
   x = dlg([['client', 'Понял'], ['operator', 'До свидания!'], ['system', 'Клиент завершил разговор.']]);
   assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'no');
+  // the line dropped right after the operator's greeting: the operator could not close the chat
+  x = dlg([['client', 'Hi'], ['operator', 'Hello! How can I help you today?'], ['system', 'Connection to customer lost.']]);
+  assert.equal(DETECTORS.client_left_early(x.msgs, x.d).answer, 'yes');
 });
 
 test('rules turn sub-answers into the criterion answer', () => {
@@ -68,4 +71,30 @@ test('sub-questions switch off when the criterion wording is changed in the UI',
   assert.equal(usesChecks(c), true);
   assert.equal(usesChecks({ ...c, description: 'Да — оператор отправил ссылку на опрос.' }), false);
   assert.equal(usesChecks({ ...c, name: 'Новый критерий' }), false);
+});
+
+test('identification: verified then handled -> yes; nothing sensitive, no check -> N/A; disclosed unverified -> no', () => {
+  const c03 = { na_allowed: true, logic: { na_if_none: ['sensitive', 'verified_before', 'system_verified'], yes_if_any: ['verified_before', 'system_verified'], default: 'no' } };
+  assert.equal(applyLogic(c03, { sensitive: 'no', verified_before: 'no', system_verified: 'no' }), 'na');
+  assert.equal(applyLogic(c03, { sensitive: 'yes', verified_before: 'no', system_verified: 'no' }), 'no');
+  assert.equal(applyLogic(c03, { sensitive: 'no', verified_before: 'no', system_verified: 'yes' }), 'yes');
+  assert.equal(applyLogic(c03, { sensitive: 'yes', verified_before: 'yes', system_verified: 'no' }), 'yes');
+});
+
+test('a clarifying question is not «чем могу помочь?» or «остались вопросы?»', () => {
+  let x = dlg([['client', 'Где отчёт?'], ['operator', 'Здравствуйте! Чем могу помочь?'], ['operator', 'Остались ли у вас вопросы?']]);
+  assert.equal(DETECTORS.operator_clarifying_question(x.msgs, x.d).answer, 'no');
+  x = dlg([['client', 'Не работает вывод'], ['operator', 'Какое сообщение вы видите в приложении?']]);
+  assert.equal(DETECTORS.operator_clarifying_question(x.msgs, x.d).answer, 'yes');
+});
+
+test('first reaction is measured from the handover to the operator, not from the first message to the bot', () => {
+  const { timingFacts } = require('../lib/transcript');
+  const msgs = indexTranscript({ transcript: [
+    { timestamp: '00:00', speaker: 'client', text: 'Где отчёт?' },
+    { timestamp: '00:05', speaker: 'bot', text: 'Здравствуйте!' },
+    { timestamp: '01:16', speaker: 'system', text: 'Эскалация на оператора.' },
+    { timestamp: '03:28', speaker: 'operator', text: 'Здравствуйте, меня зовут Ая.' },
+  ] });
+  assert.equal(timingFacts(msgs, 180).first_response_sec, 132);
 });

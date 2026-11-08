@@ -2,13 +2,20 @@
 // Builds the evaluation prompt from the checklist CONFIG, so any edited / new criterion
 // is applied without code changes.
 const { fmtSec } = require('./transcript');
-const { usesChecks, modelChecks } = require('./checks');
+const { usesChecks, modelChecks, codeOnly } = require('./checks');
 
 const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'английский' };
 
 function describeCriterion(c) {
   const lines = [];
   lines.push(`### ${c.id} — ${c.code ? c.code + '. ' : ''}${c.name}`);
+  // Criteria decided by sub-questions: the model needs only the sub-questions (the verdict, N/A and
+  // the rule are applied in code), which keeps the prompt short for rate-limited hosted models.
+  if (usesChecks(c)) {
+    lines.push('Подвопросы (ответь на КАЖДЫЙ "yes" или "no" и укажи номер реплики-основания msg или null; итог по критерию вычислит система, поле answer не нужно):');
+    for (const q of modelChecks(c)) lines.push(`  - ${q.id}: ${q.q}`);
+    return lines.join('\n');
+  }
   if (c.type === 'binary') lines.push(`Тип: ДА/НЕТ${c.na_allowed ? '/N/A' : ''}. Поле answer: "yes" | "no"${c.na_allowed ? ' | "na"' : ''}.`);
   if (c.type === 'flag') lines.push('Тип: флаг грубого нарушения (без баллов). Поле answer: "yes" (нарушение есть) | "no".');
   if (c.type === 'scale') {
@@ -18,15 +25,6 @@ function describeCriterion(c) {
     for (const s of [...c.scale].sort((a, b) => b.value - a.value)) lines.push(`  ${s.value} — ${s.label}`);
   }
   if (c.description) lines.push(`Правило: ${c.description}`);
-  if (usesChecks(c)) {
-    const mq = modelChecks(c);
-    if (mq.length) {
-      lines.push('Подвопросы (ответь на КАЖДЫЙ "yes" или "no" и укажи номер реплики-основания msg или null; итог по критерию вычислит система, поле answer не нужно):');
-      for (const q of mq) lines.push(`  - ${q.id}: ${q.q}`);
-    }
-    const auto = c.checks.filter((q) => q.detector);
-    if (auto.length) lines.push(`Система сама проверит: ${auto.map((q) => q.label || q.id).join('; ')}. Дай только объяснение.`);
-  }
   if (c.na_allowed) lines.push(`N/A допустим ТОЛЬКО если: ${c.na_condition || '(условие не задано — используйте N/A только если критерий объективно неприменим)'}`);
   else lines.push('N/A для этого критерия НЕ допускается.');
   return lines.join('\n');
@@ -56,30 +54,45 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     'Заполни запись для КАЖДОГО критерия из чек-листа.',
   ].join('\n');
 
-  const crit = checklist.criteria.map(describeCriterion).join('\n\n');
+  const crit = checklist.criteria.filter((c) => !codeOnly(c)).map(describeCriterion).join('\n\n');
 
   const internal = new Set((facts.dialog && facts.dialog.internal_idx) || []);
-  const lines = msgs.map((m) => `[${m.idx}] ${m.timestamp ?? ''} (${fmtSec(m.offset_sec)}) ${m.speaker}${internal.has(m.idx) ? ' ВНУТРЕННИЙ (клиент не слышит)' : ''}: ${m.text.replace(/\s+/g, ' ')}`);
+  // Keep the prompt compact (hosted models have per-request token limits): calls show the offset from
+  // the start instead of the full ISO timestamp, and the operator's internal talk with a colleague while
+  // the client is on hold is collapsed into one line. Message numbers stay the same.
+  const lines = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (internal.has(m.idx)) {
+      let j = i;
+      while (j + 1 < msgs.length && (internal.has(msgs[j + 1].idx) || (msgs[j + 1].speaker === 'system' && internal.has(msgs[j + 2]?.idx)))) j++;
+      lines.push(`[${m.idx + 1}–${msgs[j].idx + 1}] (${j - i + 1} реплик) ВНУТРЕННИЙ разговор оператора с коллегой, клиент на удержании и не слышит — опущен, не оценивается`);
+      i = j;
+      continue;
+    }
+    const ts = /^\d{4}-\d{2}-\d{2}T/.test(String(m.timestamp || '')) ? fmtSec(m.offset_sec) : `${m.timestamp ?? ''} (${fmtSec(m.offset_sec)})`;
+    lines.push(`[${m.idx + 1}] ${ts} ${m.speaker}: ${m.text.replace(/\s+/g, ' ')}`);
+  }
 
   const factLines = [];
   factLines.push(`Канал: ${record.channel}. Язык диалога: ${LANG_NAMES[record.language] || record.language}.`);
-  if (facts.first_operator_idx !== null) factLines.push(`Первая реплика оператора: [${facts.first_operator_idx}].`);
+  if (facts.first_operator_idx !== null) factLines.push(`Первая реплика оператора: [${facts.first_operator_idx + 1}].`);
   else factLines.push('Оператор в диалоге не отвечал.');
   if (facts.first_response_sec !== null) factLines.push(`Время первой реакции оператора: ${fmtSec(facts.first_response_sec)} (порог ${fmtSec(threshold)}).`);
   if (facts.long_waits.length)
     factLines.push(
       'Паузы ответа оператора длиннее порога: ' +
-        facts.long_waits.map((w) => `[${w.from_idx}]→[${w.to_idx}] ${fmtSec(w.gap_sec)}`).join('; ') +
+        facts.long_waits.map((w) => `[${w.from_idx + 1}]→[${w.to_idx + 1}] ${fmtSec(w.gap_sec)}`).join('; ') +
         '. Проверь, предупреждал ли оператор об ожидании.'
     );
   else factLines.push('Пауз ответа длиннее порога не обнаружено.');
   const d = facts.dialog;
   if (d) {
-    if (d.first_client_facing_operator_idx !== null) factLines.push(`Первая реплика оператора клиенту: [${d.first_client_facing_operator_idx}]. Последняя реплика оператора клиенту: [${d.last_operator_idx}].`);
-    if (d.holds.length) factLines.push(`Клиент на удержании: ${d.holds.map(([a, b]) => `[${a}]–[${b}]`).join(', ')}. Реплики оператора внутри — внутренний разговор с коллегой.`);
-    factLines.push(d.id_confirmed_idx !== null ? `Система подтвердила личность клиента в реплике [${d.id_confirmed_idx}].` : 'Системного сообщения о подтверждении личности нет (проверка могла пройти голосом оператора — смотри реплики).');
-    if (d.closed_by_operator_idx !== null) factLines.push(`Чат закрыл оператор: [${d.closed_by_operator_idx}].`);
-    if (d.ended_by_client_idx !== null) factLines.push(`Разговор завершил клиент или связь прервалась: [${d.ended_by_client_idx}].`);
+    if (d.first_client_facing_operator_idx !== null) factLines.push(`Первая реплика оператора клиенту: [${d.first_client_facing_operator_idx + 1}]. Последняя реплика оператора клиенту: [${d.last_operator_idx + 1}].`);
+    if (d.holds.length) factLines.push(`Клиент на удержании: ${d.holds.map(([a, b]) => `[${a + 1}]–[${b + 1}]`).join(', ')}. Реплики оператора внутри — внутренний разговор с коллегой.`);
+    factLines.push(d.id_confirmed_idx !== null ? `Система подтвердила личность клиента в реплике [${d.id_confirmed_idx + 1}].` : 'Системного сообщения о подтверждении личности нет (проверка могла пройти голосом оператора — смотри реплики).');
+    if (d.closed_by_operator_idx !== null) factLines.push(`Чат закрыл оператор: [${d.closed_by_operator_idx + 1}].`);
+    if (d.ended_by_client_idx !== null) factLines.push(`Разговор завершил клиент или связь прервалась: [${d.ended_by_client_idx + 1}].`);
   }
 
   const user = [
@@ -90,7 +103,7 @@ function buildPrompt({ checklist, record, msgs, facts }) {
     factLines.join('\n'),
     '',
     `# Транскрипт ${record.conversation_id}`,
-    'Формат: [номер] метка_времени (смещение) роль: текст',
+    'Формат: [номер реплики, с 1] метка_времени (смещение от начала; у звонков только смещение) роль: текст',
     lines.join('\n'),
     '',
     'Верни JSON.',
@@ -109,6 +122,7 @@ function answerEnum(c) {
 function buildSchema(checklist) {
   const props = {};
   for (const c of checklist.criteria) {
+    if (codeOnly(c)) continue; // answered entirely by code, not asked of the model
     if (usesChecks(c)) {
       const cp = {};
       for (const q of modelChecks(c)) cp[q.id] = { type: 'object', properties: { answer: { type: 'string', enum: ['yes', 'no'] }, msg: { anyOf: [{ type: 'integer' }, { type: 'null' }] } }, required: ['answer', 'msg'], additionalProperties: false };

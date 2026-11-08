@@ -1,5 +1,6 @@
 'use strict';
-// CQA — Conversation Quality Analytics prototype. Zero npm dependencies (Node 18+).
+// CQA — Conversation Quality Analytics prototype (Node 18+). Runs as a local server (npm start) or as a
+// Vercel serverless function (api/index.js at the repository root) with MongoDB storage.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -24,16 +25,27 @@ const ORG_API_URL =
   process.env.ORG_API_URL ||
   'https://ec88f21f1accecf38e20095a9fe175.a5.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/b3d2a68006a24662be2b721454cb4e00/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=5Sog2MThgCRTlk3HObv70LRmRk6u7IOwzlwMpe804qo';
 const CONCURRENCY = Number(process.env.EVAL_CONCURRENCY || 4);
+// On serverless hosting a request cannot keep working after its response, so batches run client-side.
+const SERVERLESS = !!process.env.VERCEL;
+// Call recordings are real customers' voices. On a public deployment they are not served (neither the
+// player stream nor the organizers' link) unless the team explicitly sets ALLOW_PUBLIC_AUDIO=1.
+const AUDIO_PUBLIC = !SERVERLESS || process.env.ALLOW_PUBLIC_AUDIO === '1';
 
-// Seed default checklist on first run.
-if (!store.listChecklists().length) {
-  store.saveChecklist(JSON.parse(fs.readFileSync(path.join(__dirname, 'checklists', 'default.json'), 'utf8')));
-}
-// Seed bundled sample data if present and nothing loaded yet.
-const sampleFile = path.join(__dirname, 'samples', 'SAMPLE.json');
-if (!store.listDatasets().length && fs.existsSync(sampleFile)) {
-  const s = JSON.parse(fs.readFileSync(sampleFile, 'utf8'));
-  store.saveDataset('SAMPLE', s.data.records);
+// Seed the default checklist and bundled sample data on first run (once per process).
+let seeded = null;
+function ensureSeeded() {
+  if (!seeded) {
+    seeded = (async () => {
+      if (!(await store.listChecklists()).length) {
+        await store.seedChecklist(JSON.parse(fs.readFileSync(path.join(__dirname, 'checklists', 'default.json'), 'utf8')));
+      }
+      const sampleFile = path.join(__dirname, 'samples', 'SAMPLE.json');
+      if (!(await store.listDatasets()).length && fs.existsSync(sampleFile)) {
+        await store.saveDataset('SAMPLE', JSON.parse(fs.readFileSync(sampleFile, 'utf8')).data.records);
+      }
+    })().catch((e) => { seeded = null; throw e; });
+  }
+  return seeded;
 }
 
 // ---------------- helpers ----------------
@@ -51,6 +63,10 @@ function send(res, status, body, headers = {}) {
 const fail = (res, status, msg) => send(res, status, { error: msg });
 
 function readBody(req) {
+  // On Vercel the runtime parses JSON bodies itself and exposes them as req.body.
+  if (process.env.VERCEL && req.body !== undefined) {
+    return Promise.resolve(typeof req.body === 'string' ? (req.body ? JSON.parse(req.body) : {}) : req.body || {});
+  }
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -100,8 +116,7 @@ function extractRecords(payload) {
   throw new Error('Не найден массив records в ответе');
 }
 
-function summarize(rec, checklistUid) {
-  const ev = store.latestEvaluation(rec.conversation_id, checklistUid);
+function summarize(rec, ev, openAppeals) {
   const fin = ev ? ev.final_result || ev.result : null;
   return {
     conversation_id: rec.conversation_id,
@@ -115,8 +130,9 @@ function summarize(rec, checklistUid) {
     // criteria where the second-opinion model disagreed with the primary one
     needs_review: fin ? fin.criteria.filter((c) => c.needs_review).length : 0,
     status: ev ? ev.status || 'evaluated' : 'not_evaluated',
-    open_appeals: ev ? store.listAppeals({ evaluation_id: ev.id, status: 'open' }).length : 0,
+    open_appeals: openAppeals || 0,
     error: ev ? ev.error || null : null,
+    evaluated_at: ev ? ev.created_at || null : null,
   };
 }
 
@@ -133,10 +149,15 @@ function recompute(ev) {
   return score(ev.checklist, verdicts);
 }
 
-async function runEvaluation(record, groupId, checklist) {
+async function runEvaluation(record, groupId, fullChecklist) {
+  // Criteria switched off in the checklist settings (active === false) do not take part in the
+  // evaluation; the weights of the remaining ones are scored as usual (N/A redistribution, max 100).
+  const checklist = fullChecklist.criteria.some((c) => c.active === false)
+    ? { ...fullChecklist, criteria: fullChecklist.criteria.filter((c) => c.active !== false) }
+    : fullChecklist;
   try {
     const out = await evaluate(record, checklist);
-    return store.addEvaluation({
+    return await store.addEvaluation({
       conversation_id: record.conversation_id,
       group_id: groupId,
       checklist_uid: checklist.uid,
@@ -149,7 +170,9 @@ async function runEvaluation(record, groupId, checklist) {
       status: 'evaluated',
     });
   } catch (e) {
-    return store.addEvaluation({
+    // A rate limit is not an evaluation result: report it so the caller can retry later.
+    if (e.status === 429) throw Object.assign(new Error(e.message || 'Лимит запросов модели исчерпан, повторите позже'), { status: 429, retryAfterSec: e.retryAfterSec || 20 });
+    return await store.addEvaluation({
       conversation_id: record.conversation_id,
       group_id: groupId,
       checklist_uid: checklist.uid,
@@ -188,10 +211,27 @@ const route = (method, pattern, handler) => {
   routes.push({ method, re, keys, handler });
 };
 
-route('GET', '/api/config', () => {
+route('GET', '/api/config', async () => {
   const c = llm.config();
-  return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: store.activeChecklist()?.uid };
+  return { provider: c.provider, model: c.model, price_configured: !!(c.priceIn || c.priceOut), active_checklist: (await store.activeChecklist())?.uid, storage: store.backend, serverless: SERVERLESS, audio_enabled: AUDIO_PUBLIC };
 });
+
+// Which hosted models this deployment's key can use (ids only; the key is never returned).
+route('GET', '/api/llm/models', async () => {
+  const c = llm.config();
+  const base = c.provider === 'groq' ? process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1' : c.provider === 'openai' ? process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1' : null;
+  const key = c.provider === 'groq' ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
+  if (!base || !key) return { provider: c.provider, models: [] };
+  const r = await fetch(base + '/models', { headers: { authorization: `Bearer ${key}` } });
+  if (!r.ok) throw Object.assign(new Error(`models: HTTP ${r.status}`), { status: 502 });
+  const j = await r.json();
+  return { provider: c.provider, primary: c.model, models: (j.data || []).map((m) => ({ id: m.id, owned_by: m.owned_by, context_window: m.context_window, active: m.active })).sort((a, b) => a.id.localeCompare(b.id)) };
+});
+
+// active (or requested) checklist
+async function pickChecklist(uid) {
+  return (uid && (await store.getChecklist(uid))) || (await store.activeChecklist());
+}
 
 // datasets
 route('GET', '/api/datasets', () => store.listDatasets());
@@ -204,35 +244,41 @@ route('POST', '/api/datasets/fetch', async ({ body }) => {
   const payload = JSON.parse(txt);
   if (payload.isSuccess === false) throw Object.assign(new Error('API организаторов: ' + (payload.error || 'isSuccess=false')), { status: 502 });
   const records = extractRecords(payload);
-  store.saveDataset(g, records);
+  await store.saveDataset(g, records);
   return { group_id: g, total: records.length };
 });
 route('POST', '/api/datasets/upload', async ({ body }) => {
   const records = extractRecords(body.payload);
   const g = String(body.group_id || body.payload?.data?.dataset_group_id || 'UPLOAD').trim();
-  store.saveDataset(g, records);
+  await store.saveDataset(g, records);
   return { group_id: g, total: records.length };
 });
 
 // conversations
-route('GET', '/api/conversations', ({ query }) => {
+route('GET', '/api/conversations', async ({ query }) => {
   const g = query.get('group_id');
-  const cl = store.getChecklist(query.get('checklist')) || store.activeChecklist();
-  const ds = store.getDataset(g);
+  const cl = await pickChecklist(query.get('checklist'));
+  const ds = await store.getDataset(g);
   if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
-  return { group_id: g, checklist_uid: cl.uid, items: ds.records.map((r) => summarize(r, cl.uid)) };
+  // two queries for the whole list instead of two per dialog
+  const latest = await store.latestEvaluations(ds.records.map((r) => r.conversation_id), cl.uid);
+  const evIds = Object.values(latest).map((e) => e.id);
+  const open = {};
+  for (const a of await store.listAppeals({ status: 'open', evaluation_ids: evIds })) open[a.evaluation_id] = (open[a.evaluation_id] || 0) + 1;
+  return { group_id: g, checklist_uid: cl.uid, items: ds.records.map((r) => { const e = latest[r.conversation_id] || null; return summarize(r, e, e ? open[e.id] : 0); }) };
 });
-route('GET', '/api/conversations/:id', ({ params, query }) => {
-  const f = store.findConversation(decodeURIComponent(params.id), query.get('group_id'));
+route('GET', '/api/conversations/:id', async ({ params, query }) => {
+  const f = await store.findConversation(decodeURIComponent(params.id), query.get('group_id'));
   if (!f) throw Object.assign(new Error('Диалог не найден'), { status: 404 });
-  const evals = store.listEvaluations({ conversation_id: f.record.conversation_id }).map((e) => ({ id: e.id, checklist_uid: e.checklist_uid, created_at: e.created_at, status: e.status, total: (e.final_result || e.result || {}).total ?? null }));
-  return { group_id: f.group_id, record: f.record, evaluations: evals };
+  const evals = (await store.listEvaluations({ conversation_id: f.record.conversation_id })).map((e) => ({ id: e.id, checklist_uid: e.checklist_uid, created_at: e.created_at, status: e.status, total: (e.final_result || e.result || {}).total ?? null }));
+  const record = !AUDIO_PUBLIC && f.record.audio_url ? { ...f.record, audio_url: null, audio_withheld: true } : f.record;
+  return { group_id: f.group_id, record, evaluations: evals };
 });
 
 // checklists
-route('GET', '/api/checklists', () => ({ active: store.activeChecklist()?.uid, items: store.listChecklists().map((c) => ({ uid: c.uid, id: c.id, name: c.name, version: c.version, saved_at: c.saved_at, criteria: c.criteria.length })) }));
-route('GET', '/api/checklists/:uid', ({ params }) => {
-  const c = store.getChecklist(decodeURIComponent(params.uid));
+route('GET', '/api/checklists', async () => ({ active: (await store.activeChecklist())?.uid, items: (await store.listChecklists()).map((c) => ({ uid: c.uid, id: c.id, name: c.name, version: c.version, saved_at: c.saved_at, criteria: c.criteria.length })) }));
+route('GET', '/api/checklists/:uid', async ({ params }) => {
+  const c = await store.getChecklist(decodeURIComponent(params.uid));
   if (!c) throw Object.assign(new Error('Чек-лист не найден'), { status: 404 });
   return c;
 });
@@ -242,26 +288,31 @@ route('POST', '/api/checklists', ({ body }) => {
   const { uid, saved_at, version, ...clean } = body.checklist;
   return store.saveChecklist(clean, { activate: body.activate !== false });
 });
-route('POST', '/api/checklists/:uid/activate', ({ params }) => {
-  if (!store.setActive(decodeURIComponent(params.uid))) throw Object.assign(new Error('Чек-лист не найден'), { status: 404 });
+route('POST', '/api/checklists/:uid/activate', async ({ params }) => {
+  if (!(await store.setActive(decodeURIComponent(params.uid)))) throw Object.assign(new Error('Чек-лист не найден'), { status: 404 });
   return { active: decodeURIComponent(params.uid) };
 });
 
 // evaluation
 route('POST', '/api/evaluate', async ({ body }) => {
-  const f = store.findConversation(body.conversation_id, body.group_id);
+  const f = await store.findConversation(body.conversation_id, body.group_id);
   if (!f) throw Object.assign(new Error('Диалог не найден'), { status: 404 });
-  const cl = store.getChecklist(body.checklist_uid) || store.activeChecklist();
+  const cl = await pickChecklist(body.checklist_uid);
   const ev = await runEvaluation(f.record, f.group_id, cl);
   if (ev.status === 'error') throw Object.assign(new Error(ev.error), { status: 502 });
   return ev;
 });
-route('POST', '/api/evaluate-batch', ({ body }) => {
-  const ds = store.getDataset(body.group_id);
+route('POST', '/api/evaluate-batch', async ({ body }) => {
+  const ds = await store.getDataset(body.group_id);
   if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
-  const cl = store.getChecklist(body.checklist_uid) || store.activeChecklist();
+  const cl = await pickChecklist(body.checklist_uid);
   let records = ds.records;
-  if (body.only_missing) records = records.filter((r) => { const e = store.latestEvaluation(r.conversation_id, cl.uid); return !e || e.status === 'error'; });
+  if (body.only_missing) {
+    const latest = await store.latestEvaluations(records.map((r) => r.conversation_id), cl.uid);
+    records = records.filter((r) => { const e = latest[r.conversation_id]; return !e || e.status === 'error'; });
+  }
+  // Serverless: the browser drives the batch, one /api/evaluate call per dialog.
+  if (SERVERLESS) return { client_side: true, group_id: body.group_id, checklist_uid: cl.uid, conversation_ids: records.map((r) => r.conversation_id) };
   const job = { id: 'job_' + Date.now(), group_id: body.group_id, checklist_uid: cl.uid, total: records.length, done: 0, errors: [], cost_usd: 0, status: 'running', started_at: new Date().toISOString() };
   jobs.set(job.id, job);
   runBatch(job, records, body.group_id, cl);
@@ -277,23 +328,23 @@ route('POST', '/api/jobs/:id/cancel', ({ params }) => {
   if (j) j.cancelled = true;
   return j || {};
 });
-route('GET', '/api/evaluations/:id', ({ params }) => {
-  const e = store.getEvaluation(params.id);
+route('GET', '/api/evaluations/:id', async ({ params }) => {
+  const e = await store.getEvaluation(params.id);
   if (!e) throw Object.assign(new Error('Оценка не найдена'), { status: 404 });
-  return { ...e, appeals: store.listAppeals({ evaluation_id: e.id }) };
+  return { ...e, appeals: await store.listAppeals({ evaluation_id: e.id }) };
 });
 
 // appeals
-route('POST', '/api/appeals', ({ body }) => {
-  const ev = store.getEvaluation(body.evaluation_id);
+route('POST', '/api/appeals', async ({ body }) => {
+  const ev = await store.getEvaluation(body.evaluation_id);
   if (!ev || !ev.result) throw Object.assign(new Error('Оценка не найдена'), { status: 404 });
   const row = ev.result.criteria.find((c) => c.criterion_id === body.criterion_id);
   if (!row) throw Object.assign(new Error('Критерий не найден'), { status: 400 });
   if (!String(body.comment || '').trim()) throw Object.assign(new Error('Нужен комментарий'), { status: 400 });
-  if (store.listAppeals({ evaluation_id: ev.id, status: 'open' }).some((a) => a.criterion_id === body.criterion_id))
+  if ((await store.listAppeals({ evaluation_id: ev.id, status: 'open' })).some((a) => a.criterion_id === body.criterion_id))
     throw Object.assign(new Error('По этому критерию уже есть открытая апелляция'), { status: 409 });
   const current = (ev.final_result || ev.result).criteria.find((c) => c.criterion_id === body.criterion_id);
-  const ap = store.addAppeal({
+  const ap = await store.addAppeal({
     evaluation_id: ev.id,
     conversation_id: ev.conversation_id,
     group_id: ev.group_id,
@@ -305,21 +356,22 @@ route('POST', '/api/appeals', ({ body }) => {
     comment: String(body.comment).trim(),
     author: body.author || 'Оператор',
   });
-  store.updateEvaluation(ev.id, { status: 'appealed' });
+  await store.updateEvaluation(ev.id, { status: 'appealed' });
   return ap;
 });
-route('GET', '/api/appeals', ({ query }) => {
-  return store.listAppeals({ status: query.get('status') || undefined }).map((a) => {
-    const ev = store.getEvaluation(a.evaluation_id);
-    return { ...a, total: (ev.final_result || ev.result).total };
-  });
+route('GET', '/api/appeals', async ({ query }) => {
+  const list = await store.listAppeals({ status: query.get('status') || undefined });
+  return Promise.all(list.map(async (a) => {
+    const ev = await store.getEvaluation(a.evaluation_id);
+    return { ...a, total: ev ? (ev.final_result || ev.result).total : null };
+  }));
 });
-route('POST', '/api/appeals/:id/decision', ({ params, body }) => {
-  const ap = store.getAppeal(params.id);
+route('POST', '/api/appeals/:id/decision', async ({ params, body }) => {
+  const ap = await store.getAppeal(params.id);
   if (!ap) throw Object.assign(new Error('Апелляция не найдена'), { status: 404 });
   if (ap.status !== 'open') throw Object.assign(new Error('Апелляция уже рассмотрена'), { status: 409 });
   if (!String(body.reason || '').trim()) throw Object.assign(new Error('Укажите причину решения'), { status: 400 });
-  const ev = store.getEvaluation(ap.evaluation_id);
+  const ev = await store.getEvaluation(ap.evaluation_id);
   const before = (ev.final_result || ev.result).total;
   const overrides = { ...(ev.overrides || {}) };
   let action = body.action === 'change' ? 'change' : 'confirm';
@@ -329,9 +381,10 @@ route('POST', '/api/appeals/:id/decision', ({ params, body }) => {
   const tmp = { ...ev, overrides };
   const final = recompute(tmp);
   const newAnswer = final.criteria.find((c) => c.criterion_id === ap.criterion_id).answer;
-  if (action === 'change' && String(newAnswer) === String(ap.disputed_answer)) action = 'confirm';
-  const remainingOpen = store.listAppeals({ evaluation_id: ev.id, status: 'open' }).filter((a) => a.id !== ap.id).length;
-  store.updateEvaluation(ev.id, { overrides, final_result: final, status: remainingOpen ? 'appealed' : 'reviewed' });
+  // A "change" to the same answer is almost always a form mistake: reject it instead of silently confirming.
+  if (action === 'change' && String(newAnswer) === String(ap.disputed_answer)) throw Object.assign(new Error('Новая оценка совпадает со спорной: выберите другое значение или подтвердите оценку'), { status: 400 });
+  const remainingOpen = (await store.listAppeals({ evaluation_id: ev.id, status: 'open' })).filter((a) => a.id !== ap.id).length;
+  await store.updateEvaluation(ev.id, { overrides, final_result: final, status: remainingOpen ? 'appealed' : 'reviewed' });
   return store.updateAppeal(ap.id, {
     status: action === 'change' ? 'changed' : 'confirmed',
     decision: { action, answer: newAnswer, reason: String(body.reason).trim(), reviewer: body.reviewer || 'Проверяющий', decided_at: new Date().toISOString(), total_before: before, total_after: final.total },
@@ -339,13 +392,14 @@ route('POST', '/api/appeals/:id/decision', ({ params, body }) => {
 });
 
 // export: final results of a group for the active (or given) checklist
-route('GET', '/api/export', ({ query }) => {
+route('GET', '/api/export', async ({ query }) => {
   const g = query.get('group_id');
-  const cl = store.getChecklist(query.get('checklist')) || store.activeChecklist();
-  const ds = store.getDataset(g);
+  const cl = await pickChecklist(query.get('checklist'));
+  const ds = await store.getDataset(g);
   if (!ds) throw Object.assign(new Error('Набор не найден'), { status: 404 });
+  const latest = await store.latestEvaluations(ds.records.map((r) => r.conversation_id), cl.uid);
   return ds.records.map((r) => {
-    const e = store.latestEvaluation(r.conversation_id, cl.uid);
+    const e = latest[r.conversation_id];
     const fin = e && (e.final_result || e.result);
     return {
       conversation_id: r.conversation_id,
@@ -380,7 +434,8 @@ async function resolveAudio(pageUrl, force = false) {
   return src;
 }
 async function serveAudio(req, res, url) {
-  const f = store.findConversation(url.searchParams.get('id') || '', url.searchParams.get('group_id'));
+  if (!AUDIO_PUBLIC) return fail(res, 403, 'Записи звонков в публичной версии не публикуются');
+  const f = await store.findConversation(url.searchParams.get('id') || '', url.searchParams.get('group_id'));
   if (!f || !f.record.audio_url) return fail(res, 404, 'У диалога нет записи');
   const headers = req.headers.range ? { range: req.headers.range } : {};
   let up = await fetch(await resolveAudio(f.record.audio_url), { headers });
@@ -403,10 +458,12 @@ function serveStatic(req, res, pathname) {
   send(res, 200, fs.readFileSync(p), { 'content-type': MIME[path.extname(p)] || 'application/octet-stream', 'cache-control': 'no-cache' });
 }
 
-const server = http.createServer(async (req, res) => {
+// Request handler shared by the local server and the Vercel function (api/index.js).
+async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'OPTIONS') return send(res, 204, '');
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res, url.pathname);
+  try { await ensureSeeded(); } catch (e) { return fail(res, 503, 'Хранилище недоступно: ' + (e.message || e)); }
   if (req.method === 'GET' && url.pathname === '/api/audio') return serveAudio(req, res, url).catch((e) => (res.headersSent ? res.destroy() : fail(res, e.status || 502, e.message)));
   for (const r of routes) {
     if (r.method !== req.method) continue;
@@ -419,16 +476,17 @@ const server = http.createServer(async (req, res) => {
       const out = await r.handler({ params, query: url.searchParams, body, req });
       return send(res, 200, out);
     } catch (e) {
-      return fail(res, e.status || 500, e.message || String(e));
+      return send(res, e.status || 500, { error: e.message || String(e), ...(e.retryAfterSec ? { retry_after: e.retryAfterSec } : {}) });
     }
   }
   fail(res, 404, 'Not found');
-});
+}
+const server = http.createServer(handler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
     const c = llm.config();
-    console.log(`CQA running: http://localhost:${PORT}  (LLM: ${c.provider}${c.model ? ' / ' + c.model : ''})`);
+    console.log(`CQA running: http://localhost:${PORT}  (LLM: ${c.provider}${c.model ? ' / ' + c.model : ''}, storage: ${store.backend})`);
   });
 }
-module.exports = { server, recompute, validateChecklist };
+module.exports = { server, handler, recompute, validateChecklist };

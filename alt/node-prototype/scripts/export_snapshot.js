@@ -5,6 +5,7 @@
 //
 // Usage (server running on :3000):  node scripts/export_snapshot.js [--group DEV] [--include-calls]
 // By default voice calls are left out: they are real customer conversations (the 60 chats are synthetic).
+// With --include-calls their transcripts are included, but recording links are always removed.
 
 const fs = require('fs');
 const path = require('path');
@@ -33,6 +34,8 @@ async function main() {
     const conv = await get(`/conversations/${encodeURIComponent(i.conversation_id)}?group_id=${encodeURIComponent(GROUP)}`);
     // only the evaluation shown in the list, so the history selector never points at missing data
     conv.evaluations = conv.evaluations.filter((e) => e.id === i.evaluation_id);
+    // Never publish call recordings: the organizers' audio link gives access to real customers' voices.
+    if (conv.record && conv.record.audio_url) { conv.record.audio_url = null; conv.record.audio_withheld = true; }
     R[`/conversations/${encodeURIComponent(i.conversation_id)}?group_id=${encodeURIComponent(GROUP)}`] = conv;
     R['/evaluations/' + i.evaluation_id] = await get('/evaluations/' + i.evaluation_id);
     i.open_appeals = 0;

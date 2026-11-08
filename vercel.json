@@ -1,7 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "echo 'No install step: static read-only demo'",
-  "buildCommand": "echo 'No build step: serves alt/node-prototype/public'",
-  "outputDirectory": "alt/node-prototype/public"
+  "installCommand": "npm ci --prefix alt/node-prototype --omit=dev",
+  "buildCommand": "echo 'No build step: static UI in alt/node-prototype/public, API in api/index.js'",
+  "outputDirectory": "alt/node-prototype/public",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "alt/node-prototype/{checklists,samples}/**"
+    }
+  },
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
 }
