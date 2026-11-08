@@ -59,7 +59,8 @@
     async _req(path, opts = {}) {
       if (opts.method && opts.method !== "GET") throw new Error("Демо только для просмотра: изменения доступны при локальном запуске (README).");
       if (path in this.snap) return JSON.parse(JSON.stringify(this.snap[path]));
-      if (/^\/(metrics|experiments|analysis|calls_results)\.json/.test(path)) return super._req(path, opts);
+      // relative path, so the demo also works when hosted under a sub-path (e.g. /final/ on Vercel)
+      if (/^\/(metrics|experiments|analysis|calls_results)\.json/.test(path)) return super._req(path.slice(1), opts);
       throw new Error("Нет в демо-снимке: " + path);
     }
     audioUrl() { return ""; }
@@ -68,8 +69,10 @@
   window.CQA.provider = new RestDataProvider();
   window.CQA.RestDataProvider = RestDataProvider;
   // Use the live API when it answers; otherwise fall back to the static snapshot (read-only demo).
+  // Only this project's API counts (its health has default_provider); any other /api on the host -> snapshot.
   window.CQA.ready = fetch("/api/health").then((r) => {
     if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) throw new Error("no api");
+    return r.json().then((j) => { if (!j || !("default_provider" in j)) throw new Error("not this api"); });
   }).catch(() => fetch("snapshot.json").then((r) => r.json()).then((snap) => {
     window.CQA.provider = new SnapshotDataProvider(snap);
     window.CQA.snapshotMeta = snap._meta;

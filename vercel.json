@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci --prefix alt/node-prototype --omit=dev",
-  "buildCommand": "echo 'No build step: static UI in alt/node-prototype/public, API in api/index.js'",
+  "buildCommand": "rm -rf alt/node-prototype/public/final && cp -R frontend alt/node-prototype/public/final",
   "outputDirectory": "alt/node-prototype/public",
   "functions": {
     "api/index.js": {
