@@ -227,24 +227,24 @@
  },
  "verifier_weighted_sc": {
   "majority (8 votes)": {
-   "test": 0.9167,
-   "all": 0.9375,
-   "mae_all": 3.66
+   "test": 0.8958,
+   "all": 0.9006,
+   "mae_all": 6.7
   },
   "verifier-weighted": {
-   "test": 0.9167,
-   "all": 0.9375,
-   "mae_all": 3.66
+   "test": 0.8917,
+   "all": 0.8977,
+   "mae_all": 7.1
   },
   "verifier × confidence": {
-   "test": 0.9167,
-   "all": 0.9375,
-   "mae_all": 3.66
+   "test": 0.8875,
+   "all": 0.8949,
+   "mae_all": 7.23
   },
   "first 5 votes": {
-   "test": 0.9167,
-   "all": 0.9375,
-   "mae_all": 3.66
+   "test": 0.8958,
+   "all": 0.8949,
+   "mae_all": 7.18
   }
  },
  "c4_question_coverage": {

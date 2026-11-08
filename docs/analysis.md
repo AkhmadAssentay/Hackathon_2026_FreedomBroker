@@ -27,10 +27,10 @@ McNemar router vs Sonnet (paired labels): router right & Sonnet wrong 23, the re
 - target 95%: threshold None, test auto-accepted None with accuracy None, to human None
 
 ## Verifier-weighted self-consistency (c4-c6 from 8 Qwen samples, rest Sonnet)
-- majority (8 votes): test 0.9167, all 0.9375, MAE 3.66
-- verifier-weighted: test 0.9167, all 0.9375, MAE 3.66
-- verifier × confidence: test 0.9167, all 0.9375, MAE 3.66
-- first 5 votes: test 0.9167, all 0.9375, MAE 3.66
+- majority (8 votes): test 0.8958, all 0.9006, MAE 6.7
+- verifier-weighted: test 0.8917, all 0.8977, MAE 7.1
+- verifier × confidence: test 0.8875, all 0.8949, MAE 7.23
+- first 5 votes: test 0.8958, all 0.8949, MAE 7.18
 
 ## Question-coverage decomposition for consultation
 - {'c4_all_before': 0.705, 'c4_all_after': 0.682, 'c4_test_before': 0.7, 'c4_test_after': 0.6, 'router_all_before': 0.9062, 'router_all_after': 0.8864}
