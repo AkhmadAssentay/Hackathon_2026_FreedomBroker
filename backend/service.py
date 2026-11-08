@@ -482,7 +482,8 @@ def analytics(group_id: str | None = None, version: int | None = None, model: st
         "by_language": agg("language"), "by_channel": agg("channel"),
         "models": model_counts,
         "worst": [{"total": t, "key": k, "cid": c} for t, k, c in worst],
-        "cost_usd": round(sum(v["cost_usd"] for _, v in evs), 4),
+        # what evaluating the set costs, cached criteria included (each result keeps its own share)
+        "cost_usd": round(sum((r.get("cost_usd") or 0) for _, v in evs for r in v["results"].values()), 4),
     }
 
 
