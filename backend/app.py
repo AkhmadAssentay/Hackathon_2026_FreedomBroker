@@ -25,7 +25,7 @@ def _err(e: Exception, code: int = 400):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "default_provider": os.environ.get("DEFAULT_PROVIDER", "claude"),
+    return {"ok": True, "default_provider": os.environ.get("DEFAULT_PROVIDER", "router"),
             "claude_model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5"),
             "has_claude_key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
 
