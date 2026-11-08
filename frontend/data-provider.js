@@ -42,6 +42,7 @@
     budget() { return this._req("/api/budget"); }
     metrics() { return this._req("/metrics.json").catch(() => null); }
     experiments() { return this._req("/experiments.json").catch(() => null); }
+    analysis() { return this._req("/analysis.json").catch(() => null); }
     analytics(group, version) {
       const p = new URLSearchParams();
       if (group) p.set("group_id", group);
@@ -57,7 +58,7 @@
     async _req(path, opts = {}) {
       if (opts.method && opts.method !== "GET") throw new Error("Демо только для просмотра: изменения доступны при локальном запуске (README).");
       if (path in this.snap) return JSON.parse(JSON.stringify(this.snap[path]));
-      if (path.startsWith("/metrics.json") || path.startsWith("/experiments.json")) return super._req(path, opts);
+      if (/^\/(metrics|experiments|analysis)\.json/.test(path)) return super._req(path, opts);
       throw new Error("Нет в демо-снимке: " + path);
     }
     audioUrl() { return ""; }

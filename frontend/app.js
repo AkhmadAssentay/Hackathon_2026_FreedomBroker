@@ -647,7 +647,7 @@
   const vname = (k) => VNAME[k] || (k.startsWith("cascade_") ? k.replace(/^cascade_(qwen_sub_sc5|qwen_sc5)_to_sonnet@(.*)$/, (m, a, t) => `Каскад ${a === "qwen_sc5" ? "Qwen×5" : "Qwen+подвопросы×5"} → Sonnet (порог ${t})`) : null) || k.replace(/^cascade_/, "каскад ").replace(/^jury_/, "жюри ").replace(/^router_/, "маршрутизатор ").replace(/_/g, " ");
   class CqaLab extends HTMLElement {
     async connectedCallback() {
-      const ex = await P().experiments();
+      const [ex, an] = await Promise.all([P().experiments(), P().analysis()]);
       if (!ex) { this.innerHTML = `<section class="page"><p class="muted">Эксперименты ещё не запускались (python -m eval.experiments report).</p></section>`; return; }
       const names = Object.keys(ex).filter((k) => !k.startsWith("_") && ex[k].all && ex[k].all.n);
       const best = names.slice().sort((a, b) => ex[b].test.accuracy - ex[a].test.accuracy);
@@ -662,7 +662,21 @@
             <p class="muted small">Оценки сортируются по уверенности (доля совпавших голосов, самооценка модели). Проверяющий смотрит самые неуверенные — точность остальных растёт.</p></div>
           <div class="panel"><h3>Маршрутизатор: кто оценивает какой критерий</h3><div id="route"></div></div>
           <div class="panel span2"><h3>Точность по критериям (все 44 диалога)</h3><div id="heat"></div></div>
-          ${ex._memory ? `<div class="panel span2"><h3>Память апелляций: помогают ли прецеденты в промпте?</h3><div id="mem"></div>
+          ${an ? `<div class="panel span2 rel-head"><h3>Надёжность: насколько можно верить цифрам</h3>
+            <p class="muted small">44 размеченных диалога — немного. Поэтому показываем 95% доверительные интервалы (bootstrap по диалогам), парный тест и порог автоприёма с гарантией.</p></div>
+          <div class="panel"><h3>Точность и 95% доверительный интервал (все 44 диалога)</h3><div id="ci"></div>
+            ${an.mcnemar_router_vs_sonnet ? `<p class="muted small">Маршрутизатор против Sonnet на тех же метках: ${an.mcnemar_router_vs_sonnet.a_right_b_wrong} : ${an.mcnemar_router_vs_sonnet.a_wrong_b_right} в пользу маршрутизатора, p = ${an.mcnemar_router_vs_sonnet.p_value} — направление ясно, для строгой значимости нужно больше разметки.</p>` : ""}</div>
+          <div class="panel"><h3>Где ещё ошибается маршрутизатор</h3><div id="errs"></div>
+            <p class="muted small">Ошибки по срезам: ${Object.entries(an.error_analysis_router.error_rate_by_slice).map(([k, v]) => `${esc(k)} ${(v * 100).toFixed(1)}%`).join(" · ")}</p></div>
+          <div class="panel"><h3>Автоприём с гарантией (Trust or Escalate)</h3>
+            <table class="tbl"><tr><th>Цель точности</th><th>Автоматически</th><th>Точность (test)</th><th>К человеку</th></tr>
+            ${Object.entries(an.conformal).map(([t, c]) => `<tr><td>≥ ${esc(t)}</td><td>${c.threshold == null ? "недостижимо на 44 диалогах" : Math.round(c.test_auto_share * 100) + "%"}</td><td>${c.test_auto_accuracy == null ? "—" : (c.test_auto_accuracy * 100).toFixed(1) + "%"}</td><td>${c.test_to_human ?? "—"}</td></tr>`).join("")}</table>
+            <p class="muted small">Порог уверенности выбран на половине «dev» по нижней 90%-границе Клоппера–Пирсона; проверен на «test».</p></div>
+          <div class="panel"><h3>Калибровка шкал (RULERS)</h3>
+            <table class="tbl"><tr><th>Модель</th><th>test до → после</th><th>ошибка итога</th></tr>
+            ${Object.entries(an.calibration).map(([m, c]) => `<tr><td>${esc(m)}</td><td>${(c.test_before * 100).toFixed(1)}% → <b>${(c.test_after * 100).toFixed(1)}%</b></td><td>${c.mae_before} → ${c.mae_after}</td></tr>`).join("")}</table>
+            <p class="muted small">Монотонное отображение «ступень модели → ступень человека» обучено на «dev». Помогает строгому Sonnet, маршрутизатору не нужно.</p></div>` : ""}
+          ${ex._memory ? `<div class="panel span2"><h3>Память апелляций: помогают ли прецеденты в промпте?</h3><div id="mem" style="max-width:760px"></div>
             <p class="muted small">9 ошибок маршрутизатора на половине «dev» превращены в решения проверяющего с причиной и добавлены в промпт; оценка на отложенных ${ex._memory.n_test_dialogues} диалогах. Не помогло — поэтому функция выключена по умолчанию, а повторяющиеся решения переносятся в пояснения критерия.</p></div>` : ""}
           <div class="panel span2"><h3>Таблица</h3><div class="tblwrap"><table class="tbl"><tr><th>Способ</th><th>dev</th><th>test</th><th>все</th><th>KZ</th><th>RU</th><th>EN</th><th>Звонки</th><th>ошибка итога</th><th>грубые (найдено/пропущено/ложно)</th><th>$ / диалог</th></tr>
           ${best.map((k) => { const a = ex[k].all, pl = a.per_language || {}, g = a.gross || {}; const p = (v) => (v == null ? "—" : Math.round(v * 1000) / 10 + "%");
@@ -678,6 +692,12 @@
       const ch = (ex._router_choices || {})["app:claude-sonnet-5-5 + qwen_sc5"];
       if (ch) this.querySelector("#route").innerHTML = `<table class="tbl">${crits.map((c) => `<tr><td>${c.short} ${esc(c.title)}</td><td>${esc(vname(ch[c.id]))}</td></tr>`).join("")}</table>
         <p class="muted small">Выбор сделан на половине «dev»; новый или изменённый критерий оценивает Claude Sonnet 5.5.</p>`;
+      if (an) {
+        const colors = { "Маршрутизатор (рабочий прогон)": G.C.s3, "Claude Sonnet 5.5": G.C.s2, "Claude Haiku 5.5": G.C.s2 };
+        G.ciBars(this.querySelector("#ci"), Object.entries(an.systems).map(([k, v]) => ({ label: k, acc: v.all[0], lo: v.all[1], hi: v.all[2], color: colors[k] || G.C.s1 })), { lo: 0.6, hi: 1.0 });
+        const e = an.error_analysis_router, names = { c1: "Контакт", c2: "Потребность", c3: "Идентификация", c4: "Консультация", c5: "Эмпатия", c6: "Ведение", c7: "Завершение", c8: "Грубые" };
+        G.errorBars(this.querySelector("#errs"), Object.entries(e.by_criterion).map(([k, n]) => ({ label: names[k] || k, total: n, near: (e.scale_one_step_off || {})[k] || 0 })));
+      }
       if (ex._memory) {
         const m = ex._memory;
         G.hbars(this.querySelector("#mem"), [

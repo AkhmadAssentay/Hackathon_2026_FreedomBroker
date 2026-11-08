@@ -1,0 +1,258 @@
+{
+ "systems": {
+  "Маршрутизатор (рабочий прогон)": {
+   "all": [
+    0.8949,
+    0.8523,
+    0.9375
+   ],
+   "test": [
+    0.8917,
+    0.8375,
+    0.9375
+   ],
+   "mae_all": 6.96
+  },
+  "Claude Sonnet 5.5": {
+   "all": [
+    0.8693,
+    0.8295,
+    0.9062
+   ],
+   "test": [
+    0.875,
+    0.8333,
+    0.9167
+   ],
+   "mae_all": 8.88
+  },
+  "Qwen × 5 голосов": {
+   "all": [
+    0.8523,
+    0.804,
+    0.8977
+   ],
+   "test": [
+    0.8417,
+    0.7792,
+    0.9
+   ],
+   "mae_all": 7.23
+  },
+  "Qwen (один ответ)": {
+   "all": [
+    0.8324,
+    0.7812,
+    0.8807
+   ],
+   "test": [
+    0.8042,
+    0.7375,
+    0.8625
+   ],
+   "mae_all": 7.85
+  },
+  "Claude Haiku 5.5": {
+   "all": [
+    0.7472,
+    0.7102,
+    0.7841
+   ],
+   "test": [
+    0.7333,
+    0.6833,
+    0.7792
+   ],
+   "mae_all": 12.26
+  }
+ },
+ "notes": [],
+ "mcnemar_router_vs_sonnet": {
+  "a_right_b_wrong": 23,
+  "a_wrong_b_right": 14,
+  "p_value": 0.1877
+ },
+ "error_analysis_router": {
+  "errors": 37,
+  "labels": 352,
+  "by_criterion": {
+   "c6": 12,
+   "c4": 12,
+   "c5": 5,
+   "c7": 4,
+   "c2": 3,
+   "c1": 1
+  },
+  "top_confusions": {
+   "c4: 15→20": 4,
+   "c6: 7→10": 3,
+   "c5: no→yes": 3,
+   "c7: yes→no": 3,
+   "c5: yes→no": 2,
+   "c2: na→no": 2,
+   "c6: 4→10": 2,
+   "c4: 20→10": 2
+  },
+  "scale_errors": {
+   "c6": 12,
+   "c4": 12
+  },
+  "scale_one_step_off": {
+   "c6": 8,
+   "c4": 7
+  },
+  "error_rate_by_slice": {
+   "EN": 0.073,
+   "KZ": 0.115,
+   "RU": 0.081,
+   "звонки": 0.333
+  },
+  "examples": {
+   "c6": [
+    "p1-en-007",
+    "p1-en-008",
+    "p1-en-013"
+   ],
+   "c4": [
+    "p1-en-008",
+    "p1-en-013",
+    "p1-kz-012"
+   ],
+   "c5": [
+    "p1-en-013",
+    "p1-kz-008",
+    "p1-kz-013"
+   ],
+   "c2": [
+    "p1-en-014",
+    "p1-kz-013",
+    "p4-ru-002"
+   ],
+   "c7": [
+    "p1-kz-015",
+    "p1-ru-009",
+    "p4-ru-003"
+   ],
+   "c1": [
+    "p4-ru-002"
+   ]
+  }
+ },
+ "calibration": {
+  "Claude Sonnet 5.5": {
+   "mapping": {
+    "c4": {
+     "0": "0",
+     "5": "20",
+     "10": "20",
+     "15": "20",
+     "20": "20"
+    },
+    "c6": {
+     "0": "0",
+     "4": "7",
+     "7": "10",
+     "10": "10"
+    }
+   },
+   "test_before": 0.875,
+   "test_after": 0.8958,
+   "mae_before": 7.8,
+   "mae_after": 6.06
+  },
+  "Qwen × 5 голосов": {
+   "mapping": {
+    "c4": {
+     "0": "0",
+     "5": "5",
+     "10": "10",
+     "15": "15",
+     "20": "20"
+    },
+    "c6": {
+     "0": "0",
+     "4": "4",
+     "7": "10",
+     "10": "10"
+    }
+   },
+   "test_before": 0.8417,
+   "test_after": 0.8292,
+   "mae_before": 7.35,
+   "mae_after": 8.55
+  },
+  "Маршрутизатор (рабочий прогон)": {
+   "mapping": {
+    "c4": {
+     "0": "10",
+     "5": "10",
+     "10": "10",
+     "15": "15",
+     "20": "20"
+    },
+    "c6": {
+     "0": "0",
+     "4": "4",
+     "7": "10",
+     "10": "10"
+    }
+   },
+   "test_before": 0.8917,
+   "test_after": 0.8708,
+   "mae_before": 7.07,
+   "mae_after": 7.33
+  }
+ },
+ "conformal": {
+  "90%": {
+   "target": 0.9,
+   "alpha": 0.1,
+   "threshold": 0.8,
+   "test_auto_share": 0.808,
+   "test_auto_accuracy": 0.9278,
+   "test_to_human": 46
+  },
+  "93%": {
+   "target": 0.93,
+   "alpha": 0.1,
+   "threshold": 1.0,
+   "test_auto_share": 0.767,
+   "test_auto_accuracy": 0.9402,
+   "test_to_human": 56
+  },
+  "95%": {
+   "target": 0.95,
+   "threshold": null
+  }
+ },
+ "verifier_weighted_sc": {
+  "majority (8 votes)": {
+   "test": 0.9167,
+   "all": 0.9375,
+   "mae_all": 3.66
+  },
+  "verifier-weighted": {
+   "test": 0.9167,
+   "all": 0.9375,
+   "mae_all": 3.66
+  },
+  "verifier × confidence": {
+   "test": 0.9167,
+   "all": 0.9375,
+   "mae_all": 3.66
+  },
+  "first 5 votes": {
+   "test": 0.9167,
+   "all": 0.9375,
+   "mae_all": 3.66
+  }
+ },
+ "c4_question_coverage": {
+  "c4_all_before": 0.705,
+  "c4_all_after": 0.682,
+  "c4_test_before": 0.7,
+  "c4_test_after": 0.6,
+  "router_all_before": 0.9062,
+  "router_all_after": 0.8864
+ }
+}

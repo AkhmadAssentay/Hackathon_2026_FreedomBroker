@@ -82,7 +82,23 @@ def _rule_identification(q: dict) -> str:
     return "na"
 
 
-RULES = {"closing": _rule_closing, "needs": _rule_needs, "identification": _rule_identification}
+def _rule_consultation(q: dict) -> str:
+    """Question coverage for the consultation scale (0/5/10/15/20, N/A)."""
+    if not _b(q.get("request_formulated", True)):
+        return "na"
+    if not _b(q.get("any_substantive")) or _b(q.get("wrong_key_advice")):
+        return "0"
+    if _b(q.get("main_answered")) and _b(q.get("all_answered")):
+        return "20"
+    if _b(q.get("main_answered")) and not _b(q.get("essential_open")):
+        return "15"
+    if _b(q.get("main_answered")) or _b(q.get("part_answered")):
+        return "10"
+    return "5"
+
+
+RULES = {"closing": _rule_closing, "needs": _rule_needs, "identification": _rule_identification,
+         "consultation": _rule_consultation}
 
 
 def wording_hash(c: dict) -> str:

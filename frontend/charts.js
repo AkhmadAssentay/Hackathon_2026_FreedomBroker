@@ -257,6 +257,47 @@
     el.innerHTML = svg(W, H, g, "Точность в зависимости от доли ручной проверки");
   }
 
+  // ---------------------------------------------------------------- accuracy with 95% CI whiskers
+  function ciBars(el, rows, { lo = 0.6, hi = 1.0, labelWidth = 260 } = {}) {
+    ensureTip();
+    const W = 420 + labelWidth, rowH = 34, L = labelWidth, R = 70, T = 6;
+    const H = T + rows.length * rowH + 26;
+    const X = (v) => L + ((v - lo) / (hi - lo)) * (W - L - R);
+    let g = "";
+    [0.6, 0.7, 0.8, 0.9, 1.0].filter((v) => v >= lo && v <= hi).forEach((v) => {
+      g += `<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${H - 22}" stroke="${C.grid}"/><text x="${X(v)}" y="${H - 6}" text-anchor="middle" class="ax">${Math.round(v * 100)}%</text>`;
+    });
+    rows.forEach((r, i) => {
+      const y = T + i * rowH + rowH / 2;
+      const tip = `${esc(r.label)}: <b>${(r.acc * 100).toFixed(1)}%</b><br>95% ДИ ${(r.lo * 100).toFixed(1)}–${(r.hi * 100).toFixed(1)}%`;
+      g += `<text x="${L - 8}" y="${y + 4}" text-anchor="end" class="lbl">${esc(r.label)}</text>`;
+      g += `<line x1="${X(r.lo)}" x2="${X(r.hi)}" y1="${y}" y2="${y}" stroke="${r.color || C.s1}" stroke-width="3"/>`;
+      g += `<line x1="${X(r.lo)}" x2="${X(r.lo)}" y1="${y - 7}" y2="${y + 7}" stroke="${r.color || C.s1}" stroke-width="2"/><line x1="${X(r.hi)}" x2="${X(r.hi)}" y1="${y - 7}" y2="${y + 7}" stroke="${r.color || C.s1}" stroke-width="2"/>`;
+      g += `<circle cx="${X(r.acc)}" cy="${y}" r="7" fill="${r.color || C.s1}" stroke="${C.surface}" stroke-width="2" data-tip="${tip}"/>`;
+      g += `<rect x="${L}" y="${y - rowH / 2}" width="${W - L - R}" height="${rowH}" fill="transparent" data-tip="${tip}"/>`;
+      g += `<text x="${W - R + 8}" y="${y + 4}" class="val">${(r.acc * 100).toFixed(1)}%</text>`;
+    });
+    el.innerHTML = svg(W, H, g, "Точность с 95% доверительными интервалами");
+  }
+
+  // ---------------------------------------------------------------- stacked error bars (near miss vs other)
+  function errorBars(el, rows) {
+    ensureTip();
+    const W = 560, rowH = 32, L = 220, R = 40, T = 4;
+    const H = T + rows.length * rowH + 4;
+    const max = Math.max(1, ...rows.map((r) => r.total));
+    let g = "";
+    rows.forEach((r, i) => {
+      const y = T + i * rowH, unit = (W - L - R) / max;
+      g += `<text x="${L - 8}" y="${y + 20}" text-anchor="end" class="lbl">${esc(r.label)}</text>`;
+      const wn = r.near * unit, wo = (r.total - r.near) * unit;
+      if (r.near) g += `<rect x="${L}" y="${y + 6}" width="${Math.max(0, wn - 2)}" height="${rowH - 12}" rx="3" fill="${C.s4}" data-tip="${esc(r.label)}: промах на одну ступень — <b>${r.near}</b>"/>`;
+      if (r.total - r.near) g += `<rect x="${L + wn}" y="${y + 6}" width="${Math.max(0, wo - 2)}" height="${rowH - 12}" rx="3" fill="${C.bad}" data-tip="${esc(r.label)}: другие ошибки — <b>${r.total - r.near}</b>"/>`;
+      g += `<text x="${L + wn + wo + 6}" y="${y + 20}" class="val">${r.total}</text>`;
+    });
+    el.innerHTML = svg(W, H, g, "Ошибки маршрутизатора по критериям") + legend([[C.s4, "промах на одну ступень шкалы"], [C.bad, "другие ошибки"]]);
+  }
+
   window.CQA = window.CQA || {};
-  window.CQA.charts = { riskCoverage, C, histogram, outcomes, hbars, heatmap, costAccuracy, delays, waveform, gauge };
+  window.CQA.charts = { ciBars, errorBars, riskCoverage, C, histogram, outcomes, hbars, heatmap, costAccuracy, delays, waveform, gauge };
 })();

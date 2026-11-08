@@ -60,6 +60,15 @@ SUBCHECKS = {
         {"id": "disclosed_before_verification", "q": "Оператор сообщил сведения о счёте клиента или выполнил защищённое действие ДО подтверждения личности?"},
         {"id": "verified", "q": "Личность клиента подтверждена в диалоге до раскрытия данных (системное сообщение или явная проверка оператором)?"},
     ]),
+    "c4": ("consultation", [
+        {"id": "request_formulated", "q": "Клиент успел сформулировать свой запрос до конца диалога?"},
+        {"id": "any_substantive", "q": "Оператор дал хоть какой-то ответ по существу запроса (не только приветствие/прощание)?"},
+        {"id": "wrong_key_advice", "q": "Ключевая рекомендация оператора ошибочна (неверный путь, неверный факт)?"},
+        {"id": "main_answered", "q": "Главный вопрос клиента решён или дан корректный следующий шаг?"},
+        {"id": "all_answered", "q": "Закрыты ВСЕ вопросы клиента, включая второстепенные и последующие (например, «а когда можно повторить?»)?"},
+        {"id": "essential_open", "q": "Остался без ответа существенный вопрос клиента (не мелкая деталь)?"},
+        {"id": "part_answered", "q": "Закрыта хотя бы часть запроса?"},
+    ]),
     "c7": ("closing", [
         {"id": "goodbye", "q": "В завершающих репликах оператора есть прощание (до свидания, всего доброго, сау болыңыз, goodbye, хорошего дня)?"},
         {"id": "summary", "q": "Оператор подвёл итог: назвал, что сделано или что будет дальше (не просто «пожалуйста» или «рад помочь»)?"},
@@ -96,6 +105,10 @@ VARIANTS: dict[str, dict] = {
     # appeals-as-memory: precedents from reviewer decisions on dev errors, evaluated on test only
     "qwen_sc5_mem":    {"provider": "local", "n": 5, "temperature": 0.7, "memory": True, "criteria": ["c4", "c5", "c6"], "partial": True},
     "sonnet_mem":      {"provider": "claude", "model": "claude-sonnet-5-5", "memory": True, "criteria": ["c1", "c2", "c3", "c7", "c8"], "partial": True},
+    # question-coverage decomposition for consultation (c4) only, as production calls Qwen (c4-c6)
+    "qwen_sc5_c456_c4sub": {"provider": "local", "n": 5, "temperature": 0.7, "criteria": ["c4", "c5", "c6"], "sub": ["c4"], "partial": True},
+    # test-time scaling: 8 samples kept individually with their validator result (verifier-weighted voting)
+    "qwen_sc8_samples": {"provider": "local", "n": 8, "temperature": 0.8, "criteria": ["c4", "c5", "c6"], "store_samples": True, "partial": True},
     # how production calls Qwen: only its 3 routed criteria in the prompt; and with 9 votes
     "qwen_sc5_c456":   {"provider": "local", "n": 5, "temperature": 0.7, "criteria": ["c4", "c5", "c6"], "partial": True},
     "qwen_sc9_c456":   {"provider": "local", "n": 9, "temperature": 0.7, "criteria": ["c4", "c5", "c6"], "partial": True},
@@ -224,6 +237,9 @@ def judge_one(cid: str, cfg: dict) -> dict:
         res[k] = {"answer": ans, "vote_share": share, "votes": dict(Counter(r.get("answer") for r in rs)),
                   "confidence": rs[0].get("confidence") if rs else None,
                   "errors": sum(bool(r["errors"]) for r in rs)}
+        if cfg.get("store_samples"):
+            res[k]["samples"] = [{"a": r.get("answer"), "ok": not r["errors"], "conf": r.get("confidence"),
+                                  "n_ev": len(r.get("evidence", []))} for r in rs]
     return {"cid": cid, "results": res, "cost_usd": cost}
 
 
@@ -267,8 +283,9 @@ def load(name: str) -> dict:
             if ev:
                 v = service.evaluation_view(ev["id"])
                 out[cid] = {"cid": cid, "cost_usd": v["cost_usd"],
-                            "results": {k: {"answer": r.get("answer"), "vote_share": 1.0,
-                                            "confidence": r.get("confidence")} for k, r in v["results"].items()}}
+                            "results": {k: {"answer": r.get("answer"), "vote_share": r.get("vote_share", 1.0),
+                                            "confidence": r.get("confidence"), "app_errors": len(r.get("errors") or []),
+                                            "model": r.get("model")} for k, r in v["results"].items()}}
         return out
     p = RUNS / f"{name}.json"
     return json.loads(p.read_text()) if p.exists() else {}
