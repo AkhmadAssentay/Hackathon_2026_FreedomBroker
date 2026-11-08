@@ -198,11 +198,20 @@
   }
 
   // ---------------------------------------------------------------- call waveform with turn markers
-  function waveform(el, peaks, duration, turns, { onSeek, marks = {} } = {}) {
+  function waveform(el, peaks, duration, turns, { onSeek, marks = {}, holds = [], silences = [] } = {}) {
     ensureTip();
     const W = 900, H = 96, mid = 50, amp = 38;
     const n = peaks.length, bw = W / n;
     let g = "";
+    holds.forEach(([a, b]) => {
+      const x = (a / duration) * W, w = Math.max(4, ((b - a) / duration) * W);
+      g += `<rect x="${x}" y="0" width="${w}" height="${H}" fill="#8a918d" opacity=".18" data-tip="Удержание: оператор говорит с коллегой (${Math.round(b - a)} с) — не оценивается"/>`;
+    });
+    silences.forEach((sl) => {
+      const x = (sl.at_sec / duration) * W, w = Math.max(3, (sl.seconds / duration) * W);
+      const col = sl.operator_warned ? "#8a918d" : C.bad;
+      g += `<rect x="${x}" y="${H - 4}" width="${w}" height="4" fill="${col}"/><rect x="${x}" y="0" width="${w}" height="${H}" fill="${col}" opacity=".08" data-tip="Тишина ${sl.seconds} с в ${Math.floor(sl.at_sec / 60)}:${String(Math.floor(sl.at_sec % 60)).padStart(2, "0")}<br>${sl.operator_warned ? "оператор предупредил об ожидании" : "<b>без предупреждения оператора</b>"}"/>`;
+    });
     peaks.forEach((p, i) => {
       const h = Math.max(1, p * amp);
       g += `<rect x="${i * bw}" y="${mid - h}" width="${Math.max(0.6, bw - 0.4)}" height="${2 * h}" fill="#9fb3a8"/>`;
@@ -215,7 +224,7 @@
       g += `<rect x="${x - 1}" y="${t.speaker === "operator" ? 2 : H - 10}" width="${m ? 4 : 2}" height="8" rx="1" fill="${m ? C.bad : colorFor(t)}" data-seek="${t.audio_t}" data-tip="t${t.i} ${t.internal ? "оператор ↔ коллега" : t.speaker === "operator" ? "оператор" : "клиент"} · ${Math.floor(t.audio_t / 60)}:${String(Math.floor(t.audio_t % 60)).padStart(2, "0")}${m ? "<br><b>" + esc(m) + "</b>" : ""}<br>${esc(t.text.slice(0, 90))}" style="cursor:pointer"/>`;
     });
     g += `<rect class="wf-cursor" x="0" y="0" width="2" height="${H}" fill="${C.ink}" opacity=".7"/>`;
-    el.innerHTML = svg(W, H, g, "Волна записи") + legend([[C.s1, "оператор (сверху)"], [C.s2, "клиент (снизу)"], [C.bad, "реплика-доказательство"], [C.muted, "удержание"]]);
+    el.innerHTML = svg(W, H, g, "Волна записи") + legend([[C.s1, "оператор (сверху)"], [C.s2, "клиент (снизу)"], [C.bad, "доказательство / тишина без предупреждения"], [C.muted, "удержание"]]);
     const s = el.querySelector("svg");
     s.style.cursor = "pointer";
     s.addEventListener("click", (e) => {

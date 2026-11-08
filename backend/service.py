@@ -145,7 +145,14 @@ def router_config() -> dict:
         return {"default": "claude:claude-sonnet-5-5", "criteria": {}}
 
 
-def assign_providers(cl: dict, provider_name: str | None, model: str | None) -> tuple[dict, str]:
+CALL_PROMPT = "call-v1"  # call rules + acoustic facts (eval/calls.py); part of the cache key for calls only
+
+
+def _chash(c: dict, conv: dict) -> str:
+    return criterion_hash(c, [CALL_PROMPT] if conv.get("channel") == "voice call" else [])
+
+
+def assign_providers(cl: dict, provider_name: str | None, model: str | None, channel: str = "") -> tuple[dict, str]:
     """criterion id -> provider. 'router' sends each criterion to the source that was most accurate
     for it on the dev half of the reference set; a criterion whose wording changed (edited or
     replaced in the UI) goes to the router's default model."""
@@ -156,8 +163,9 @@ def assign_providers(cl: dict, provider_name: str | None, model: str | None) -> 
     rc = router_config()
     cache: dict[str, object] = {}
     out = {}
+    overrides = rc.get("channel_overrides", {}).get(channel, {})
     for c in cl["criteria"]:
-        rule = rc.get("criteria", {}).get(c["id"])
+        rule = overrides.get(c["id"]) or rc.get("criteria", {}).get(c["id"])
         spec = rule["source"] if rule and rule.get("wording_hash") == wording_hash(c) else rc.get("default", "claude:claude-sonnet-5-5")
         if spec not in cache:
             cache[spec] = provider_from_spec(spec)
@@ -174,12 +182,12 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
         use_memory = os.environ.get("APPEAL_MEMORY", "0") == "1"
     conv = get_conv(key)
     cl = get_checklist(version)
-    assign, eval_model = assign_providers(cl, provider_name, model)
+    assign, eval_model = assign_providers(cl, provider_name, model, conv.get("channel", ""))
     results: dict[str, dict] = {}
     groups: dict[int, tuple[object, list[dict]]] = {}
     for c in cl["criteria"]:
         prov = assign[c["id"]]
-        h = criterion_hash(c, [])
+        h = _chash(c, conv)
         row = db.q1("SELECT result_json FROM criterion_cache WHERE conv_id=? AND thash=? AND chash=? AND model=?",
                     (key, conv["thash"], h, prov.model))
         if row:
@@ -219,11 +227,18 @@ def evaluate(key: str, version: int | None = None, provider_name: str | None = N
 
 def _evaluate_group(key: str, conv: dict, cl: dict, prov, missing: list[dict], use_memory: bool) -> dict:
     fx = facts(conv)
+    is_call = conv.get("channel") == "voice call"
+    if is_call:  # measured from the recording when it has been aligned (hpc/whisper.sbatch)
+        try:
+            from .audio_align import acoustic_facts
+            fx.update(acoustic_facts(conv))
+        except Exception:
+            pass
     prec = precedents(cl) if use_memory else {}
     results: dict[str, dict] = {}
     if missing:
         total_cost = 0.0
-        system, user = build_messages(conv, fx, missing, prec)
+        system, user = build_messages(conv, fx, missing, prec, call_rules=is_call)
         out = prov.complete(system, user, schema_for(missing), key, "evaluate")
         total_cost += out["cost_usd"]
         fresh, errs_by, review_by = {}, {}, {}
@@ -239,7 +254,7 @@ def _evaluate_group(key: str, conv: dict, cl: dict, prov, missing: list[dict], u
         failed = [c for c in missing if errs_by[c["id"]]]
         if failed:  # one repair round, only for the failed criteria
             note = "\n".join(f"- {c['id']}: " + "; ".join(errs_by[c["id"]]) for c in failed)
-            system, user = build_messages(conv, fx, failed, prec, repair_note=note)
+            system, user = build_messages(conv, fx, failed, prec, repair_note=note, call_rules=is_call)
             try:
                 out2 = prov.complete(system, user, schema_for(failed), key, "repair")
                 total_cost += out2["cost_usd"]
@@ -285,7 +300,7 @@ def _evaluate_group(key: str, conv: dict, cl: dict, prov, missing: list[dict], u
             r["needs_review"] = bool(r["errors"]) or r.get("confidence") == "low"
             r["model"] = prov.model
             r["cost_usd"] = round(share, 6)
-            r["criterion_hash"] = criterion_hash(c, [])
+            r["criterion_hash"] = _chash(c, conv)
             db.ex("INSERT OR REPLACE INTO criterion_cache VALUES (?,?,?,?,?,?)",
                   (key, conv["thash"], r["criterion_hash"], prov.model, db.dumps(r), db.now()))
             r["from_cache"] = False

@@ -88,10 +88,22 @@ def peaks(key: str):
 
 @app.get("/api/audio/{key}/analysis")
 def audio_analysis(key: str):
-    from .audio_align import analysis
-    a = analysis(service.get_conv(key))
+    from .audio_align import acoustic_facts, analysis
+    conv = service.get_conv(key)
+    a = analysis(conv)
     if not a:
         _err(KeyError("нет выравнивания по словам для этой записи (hpc/whisper.sbatch)"), 404)
+    a["long_silences"] = acoustic_facts(conv).get("long_silences", [])
+    # hold spans in audio seconds (operator <-> colleague while the client waits)
+    al = {int(k): v for k, v in a["aligned"].items()}
+    internal = [t["i"] for t in conv["turns"] if t.get("internal")]
+    holds = []
+    if internal:
+        times = [al[i]["start"] for i in internal if i in al] or [conv["turns"][i]["audio_t"] for i in internal if conv["turns"][i]["audio_t"] is not None]
+        ends = [(al[i]["end"] or al[i]["start"]) for i in internal if i in al] or times
+        if times:
+            holds.append([min(times), max(ends)])
+    a["holds"] = holds
     return a
 
 

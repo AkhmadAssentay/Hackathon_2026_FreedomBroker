@@ -233,7 +233,8 @@
             <div class="transcript">
               ${isCall && c.audio_url ? `<div class="player"><audio id="audio" controls preload="none" src="${P().audioUrl(this.key)}"></audio><div id="wave" class="wave"><span class="muted small">Загрузка волны записи…</span></div></div>` : ""}
               <details class="timing" ${isCall ? "" : "open"}><summary>Скорость ответов оператора</summary><div id="delays"></div></details>
-              <div class="turns">${c.turns.map((t) => this.turnHtml(t, isCall)).join("")}</div>
+              ${isCall ? this.callFactsHtml(facts) : ""}
+              <div class="turns">${this.turnsHtml(c, facts, isCall)}</div>
             </div>
           </div>
         </div>`;
@@ -261,9 +262,27 @@
             c.turns.forEach((t) => { const a = an.aligned[String(t.i)]; if (a) { t.audio_t = a.start; t.aligned = true; } });
             this.renderAudioPanel(an);
           }
-          this.wave = G.waveform(this.querySelector("#wave"), pk.peaks, pk.duration, c.turns, { marks, onSeek: (sec) => this.seek(sec + 1) });
+          this.wave = G.waveform(this.querySelector("#wave"), pk.peaks, pk.duration, c.turns,
+            { marks, onSeek: (sec) => this.seek(sec + 1), holds: (an && an.holds) || [], silences: (an && an.long_silences) || [] });
         }).catch((e) => { this.querySelector("#wave").innerHTML = `<span class="muted small">Волна недоступна: ${esc(e.message)}</span>`; });
       }
+    }
+    callFactsHtml(f) {
+      const chip = (txt, cls = "") => `<span class="cf ${cls}">${txt}</span>`;
+      const out = [];
+      if (f.first_operator_turn_after_join != null) out.push(chip(`оператор подключился → первая реплика <a href="#/conv/${encodeURIComponent(this.key)}/t${f.first_operator_turn_after_join}" data-turn="${f.first_operator_turn_after_join}">t${f.first_operator_turn_after_join}</a>`));
+      if (f.internal_operator_turns) out.push(chip("удержание: разговор с коллегой не оценивается", "muted"));
+      if (f.ended_by_client_turn != null) out.push(chip(`клиент завершил звонок: <a href="#/conv/${encodeURIComponent(this.key)}/t${f.ended_by_client_turn}" data-turn="${f.ended_by_client_turn}">t${f.ended_by_client_turn}</a>`));
+      if (f.operator_turns_after_client_hung_up) out.push(chip(`${f.operator_turns_after_client_hung_up.length} реплик оператора после конца звонка не услышаны`, "warn"));
+      return out.length ? `<div class="callfacts">${out.join("")}</div>` : "";
+    }
+    turnsHtml(c, f, isCall) {
+      const joined = isCall ? f.operator_joined_turn : null;
+      if (joined == null) return c.turns.map((t) => this.turnHtml(t, isCall)).join("");
+      const pre = c.turns.filter((t) => t.i < joined), rest = c.turns.filter((t) => t.i >= joined);
+      if (!pre.length) return c.turns.map((t) => this.turnHtml(t, isCall)).join("");
+      return `<details class="ivr"><summary>Голосовое меню и бот до подключения оператора: ${pre.length} реплик</summary>${pre.map((t) => this.turnHtml(t, isCall)).join("")}</details>`
+        + rest.map((t) => this.turnHtml(t, isCall)).join("");
     }
     renderAudioPanel(an) {
       const host = this.querySelector(".player");
@@ -370,6 +389,7 @@
       this.querySelectorAll(".turn.hl").forEach((x) => x.classList.remove("hl"));
       const el = this.querySelector(`#turn-${i}`);
       if (!el) return;
+      const det = el.closest("details"); if (det) det.open = true;
       el.classList.add("hl"); el.scrollIntoView({ behavior: "smooth", block: "center" });
       const t = this.data.conversation.turns[i];
       if (seekAudio && t && t.audio_t != null && this.querySelector("#audio")) this.seek(t.audio_t);
@@ -647,7 +667,7 @@
   const vname = (k) => VNAME[k] || (k.startsWith("cascade_") ? k.replace(/^cascade_(qwen_sub_sc5|qwen_sc5)_to_sonnet@(.*)$/, (m, a, t) => `Каскад ${a === "qwen_sc5" ? "Qwen×5" : "Qwen+подвопросы×5"} → Sonnet (порог ${t})`) : null) || k.replace(/^cascade_/, "каскад ").replace(/^jury_/, "жюри ").replace(/^router_/, "маршрутизатор ").replace(/_/g, " ");
   class CqaLab extends HTMLElement {
     async connectedCallback() {
-      const [ex, an] = await Promise.all([P().experiments(), P().analysis()]);
+      const [ex, an, calls] = await Promise.all([P().experiments(), P().analysis(), P().callsResults()]);
       if (!ex) { this.innerHTML = `<section class="page"><p class="muted">Эксперименты ещё не запускались (python -m eval.experiments report).</p></section>`; return; }
       const names = Object.keys(ex).filter((k) => !k.startsWith("_") && ex[k].all && ex[k].all.n);
       const best = names.slice().sort((a, b) => ex[b].test.accuracy - ex[a].test.accuracy);
@@ -676,6 +696,8 @@
             <table class="tbl"><tr><th>Модель</th><th>test до → после</th><th>ошибка итога</th></tr>
             ${Object.entries(an.calibration).map(([m, c]) => `<tr><td>${esc(m)}</td><td>${(c.test_before * 100).toFixed(1)}% → <b>${(c.test_after * 100).toFixed(1)}%</b></td><td>${c.mae_before} → ${c.mae_after}</td></tr>`).join("")}</table>
             <p class="muted small">Монотонное отображение «ступень модели → ступень человека» обучено на «dev». Помогает строгому Sonnet, маршрутизатору не нужно.</p></div>` : ""}
+          ${calls ? `<div class="panel span2"><h3>Звонки: что помогает (5 реальных звонков × 8 критериев = 40 меток)</h3><div id="calls" style="max-width:900px"></div>
+            <p class="muted small">Помогло: структура звонка и измерения по записи (тишина, удержание, кто завершил звонок), «Консультация» звонков → Sonnet. Не помогло: вторая расшифровка Whisper и коррекция ошибок распознавания (GER). Whisper слышит скрытые организаторами имена — используется только локально. Подробно: docs/calls.md.</p></div>` : ""}
           ${ex._memory ? `<div class="panel span2"><h3>Память апелляций: помогают ли прецеденты в промпте?</h3><div id="mem" style="max-width:760px"></div>
             <p class="muted small">9 ошибок маршрутизатора на половине «dev» превращены в решения проверяющего с причиной и добавлены в промпт; оценка на отложенных ${ex._memory.n_test_dialogues} диалогах. Не помогло — поэтому функция выключена по умолчанию, а повторяющиеся решения переносятся в пояснения критерия.</p></div>` : ""}
           <div class="panel span2"><h3>Таблица</h3><div class="tblwrap"><table class="tbl"><tr><th>Способ</th><th>dev</th><th>test</th><th>все</th><th>KZ</th><th>RU</th><th>EN</th><th>Звонки</th><th>ошибка итога</th><th>грубые (найдено/пропущено/ложно)</th><th>$ / диалог</th></tr>
@@ -697,6 +719,14 @@
         G.ciBars(this.querySelector("#ci"), Object.entries(an.systems).map(([k, v]) => ({ label: k, acc: v.all[0], lo: v.all[1], hi: v.all[2], color: colors[k] || G.C.s1 })), { lo: 0.6, hi: 1.0 });
         const e = an.error_analysis_router, names = { c1: "Контакт", c2: "Потребность", c3: "Идентификация", c4: "Консультация", c5: "Эмпатия", c6: "Ведение", c7: "Завершение", c8: "Грубые" };
         G.errorBars(this.querySelector("#errs"), Object.entries(e.by_criterion).map(([k, n]) => ({ label: names[k] || k, total: n, near: (e.scale_one_step_off || {})[k] || 0 })));
+      }
+      if (calls) {
+        const pick = [["base_qwen5", "Qwen × 5, как в чатах"], ["base_sonnet", "Sonnet, как в чатах"], ["router base (sonnet + qwen5)", "маршрутизатор, как в чатах"],
+          ["whisper_qwen5", "Qwen + вторая расшифровка Whisper"], ["ger_qwen5", "Qwen + коррекция GER"], ["rules_qwen5", "Qwen + правила звонка"],
+          ["rules_sonnet", "Sonnet + правила звонка"], ["router + call rules", "маршрутизатор + правила звонка"],
+          ["router + call rules + consultation by LOO (sonnet)", "+ «Консультация» → Sonnet"], ["production (latest run)", "рабочий прогон после внедрения"]];
+        G.hbars(this.querySelector("#calls"), pick.filter(([k]) => calls[k]).map(([k, l]) => ({ label: l, value: 100 * calls[k].accuracy,
+          tip: `${l}: ${calls[k].correct}, ошибка итога ${calls[k].total_mae}`, color: k.includes("rules") || k.includes("production") ? G.C.s3 : (k.includes("whisper") || k.includes("ger") ? G.C.s2 : G.C.s1) })), { unit: "%", labelWidth: 300 });
       }
       if (ex._memory) {
         const m = ex._memory;

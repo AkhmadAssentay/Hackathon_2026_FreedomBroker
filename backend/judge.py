@@ -139,12 +139,33 @@ def _crit_block(c: dict, precedents: list[str]) -> str:
     return "\n".join(lines)
 
 
-def render_transcript(conv: dict) -> str:
+CALL_RULES = """
+## This dialogue is a phone call (rules for calls)
+- The text is machine speech recognition: garbled words, repeats, fragments and masked data are NOT operator errors.
+  When a turn shows ⟨Whisper: …⟩ or ⟨исправлено: …⟩, it is a second recognition of the same audio — use it to
+  understand what was said, but quote ONLY the original text before the brackets.
+- The operator's first reply is their first turn after the system event that the agent joined (facts:
+  first_operator_turn_after_join); the IVR menu and the bot before it are context only.
+- In a call a goodbye can be «до свидания», «всего доброго», «хорошего дня», «благодарю/спасибо за обращение».
+- If the client ended the call (facts: ended_by_client_turn) right after thanking, before the operator could say
+  goodbye, the closing criterion is N/A. Operator turns after the client hung up were not heard — ignore them.
+- Long silences measured in the recording (facts: long_silences) without a prior warning from the operator
+  («минуту», «подождите», «проверю») are a dialogue-management failure; with a warning they are fine.
+- A client asking to repeat because of a bad line («алло», «что говорите?») is not the operator's fault if the
+  operator then repeats clearly.
+- Calls usually contain several questions: consultation gets 20 only if every question of the client got a clear,
+  correct answer or next step; a vague or uncertain answer to any of them («не знаю», «точно не подскажем») means
+  at most 15.
+"""
+
+
+def render_transcript(conv: dict, alt: dict[int, str] | None = None, alt_label: str = "Whisper") -> str:
     out = []
     for t in conv["turns"]:
         ts = t["timestamp"] if conv["channel"] != "voice call" else _mmss(t["t"])
         spk = "operator→colleague (internal, client on hold: not evaluated)" if t.get("internal") else t["speaker"]
-        out.append(f"[t{t['i']} | {ts} | {spk}] {t['text']}")
+        extra = f"  ⟨{alt_label}: {alt[t['i']]}⟩" if alt and t["i"] in alt and t["speaker"] in ("client", "operator") else ""
+        out.append(f"[t{t['i']} | {ts} | {spk}] {t['text']}{extra}")
     return "\n".join(out)
 
 
@@ -234,12 +255,13 @@ def unpack_compact(data: dict) -> dict:
 
 
 def build_messages(conv: dict, facts: dict, criteria: list[dict], precedents: dict[str, list[str]],
-                   repair_note: str = "") -> tuple[str, str]:
-    system = SYSTEM + "\n## Criteria to evaluate\n\n" + "\n\n".join(
-        _crit_block(c, precedents.get(c["id"], [])) for c in criteria)
+                   repair_note: str = "", call_rules: bool = False, alt: dict[int, str] | None = None,
+                   alt_label: str = "Whisper") -> tuple[str, str]:
+    system = SYSTEM + (CALL_RULES if call_rules and conv.get("channel") == "voice call" else "") \
+        + "\n## Criteria to evaluate\n\n" + "\n\n".join(_crit_block(c, precedents.get(c["id"], [])) for c in criteria)
     user = ("## Facts computed from timestamps (reliable)\n" + json.dumps(facts, ensure_ascii=False, indent=1)
             + f"\n\n## Transcript ({conv['conversation_id']}, {conv['channel']}, {conv['language']})\n"
-            + render_transcript(conv)
+            + render_transcript(conv, alt, alt_label)
             + "\n\nEvaluate the operator on every criterion above. Write every explanation_ru and na_reason_ru in Russian "
               "(даже если диалог на казахском или английском); quotes stay verbatim. Return JSON only: "
               "one result per criterion, answer exactly as listed in 'Allowed answers'.")

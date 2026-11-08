@@ -43,5 +43,15 @@
    "wording_hash": "4d947880a978",
    "title": "Грубые ошибки"
   }
+ },
+ "channel_overrides": {
+  "voice call": {
+   "c4": {
+    "source": "claude:claude-sonnet-5-5",
+    "wording_hash": "acc10bff5c70",
+    "title": "Корректная и полная консультация",
+    "why": "calls: Sonnet 3/5 vs Qwen x5 1/5 on consultation, chosen leave-one-call-out (eval/calls.py)"
+   }
+  }
  }
 }

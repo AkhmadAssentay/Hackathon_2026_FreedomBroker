@@ -1,0 +1,317 @@
+{
+ "production (latest run)": {
+  "n_calls": 5,
+  "accuracy": 0.75,
+  "ci95": [
+   0.675,
+   0.825
+  ],
+  "correct": "30/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 3,
+   "c3": 5,
+   "c4": 2,
+   "c5": 4,
+   "c6": 3,
+   "c7": 4,
+   "c8": 5
+  },
+  "total_mae": 12.4,
+  "cost_usd": 0
+ },
+ "base_sonnet": {
+  "n_calls": 5,
+  "accuracy": 0.675,
+  "ci95": [
+   0.625,
+   0.775
+  ],
+  "correct": "27/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 3,
+   "c5": 2,
+   "c6": 2,
+   "c7": 2,
+   "c8": 5
+  },
+  "total_mae": 20.7,
+  "cost_usd": 0.1553
+ },
+ "rules_sonnet": {
+  "n_calls": 5,
+  "accuracy": 0.725,
+  "ci95": [
+   0.675,
+   0.75
+  ],
+  "correct": "29/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 3,
+   "c5": 3,
+   "c6": 2,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 15.0,
+  "cost_usd": 0.1648
+ },
+ "base_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.575,
+  "ci95": [
+   0.475,
+   0.675
+  ],
+  "correct": "23/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 4,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 1,
+   "c7": 0,
+   "c8": 5
+  },
+  "total_mae": 15.1,
+  "cost_usd": 0.0
+ },
+ "rules_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.65,
+  "ci95": [
+   0.5,
+   0.8
+  ],
+  "correct": "26/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 4,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 3,
+   "c7": 1,
+   "c8": 5
+  },
+  "total_mae": 13.8,
+  "cost_usd": 0.0
+ },
+ "whisper_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.55,
+  "ci95": [
+   0.45,
+   0.65
+  ],
+  "correct": "22/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 3,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 1,
+   "c7": 0,
+   "c8": 5
+  },
+  "total_mae": 15.4,
+  "cost_usd": 0.0
+ },
+ "rules_whisper_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.6,
+  "ci95": [
+   0.475,
+   0.725
+  ],
+  "correct": "24/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 3,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 3,
+   "c7": 0,
+   "c8": 5
+  },
+  "total_mae": 12.5,
+  "cost_usd": 0.0
+ },
+ "ger_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.575,
+  "ci95": [
+   0.475,
+   0.675
+  ],
+  "correct": "23/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 3,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 2,
+   "c7": 0,
+   "c8": 5
+  },
+  "total_mae": 14.3,
+  "cost_usd": 0.0
+ },
+ "rules_ger_qwen5": {
+  "n_calls": 5,
+  "accuracy": 0.625,
+  "ci95": [
+   0.45,
+   0.8
+  ],
+  "correct": "25/40",
+  "per_criterion": {
+   "c1": 3,
+   "c2": 4,
+   "c3": 4,
+   "c4": 1,
+   "c5": 5,
+   "c6": 2,
+   "c7": 1,
+   "c8": 5
+  },
+  "total_mae": 12.0,
+  "cost_usd": 0.0
+ },
+ "router base (sonnet + qwen5)": {
+  "n_calls": 5,
+  "accuracy": 0.675,
+  "ci95": [
+   0.625,
+   0.725
+  ],
+  "correct": "27/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 1,
+   "c5": 5,
+   "c6": 1,
+   "c7": 2,
+   "c8": 5
+  },
+  "total_mae": 9.7,
+  "cost_usd": 0
+ },
+ "router + call rules": {
+  "n_calls": 5,
+  "accuracy": 0.75,
+  "ci95": [
+   0.65,
+   0.85
+  ],
+  "correct": "30/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 1,
+   "c5": 5,
+   "c6": 3,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 8.0,
+  "cost_usd": 0
+ },
+ "router + call rules + Whisper (Qwen part)": {
+  "n_calls": 5,
+  "accuracy": 0.75,
+  "ci95": [
+   0.65,
+   0.85
+  ],
+  "correct": "30/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 1,
+   "c5": 5,
+   "c6": 3,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 8.0,
+  "cost_usd": 0
+ },
+ "router + call rules + GER (Qwen part)": {
+  "n_calls": 5,
+  "accuracy": 0.725,
+  "ci95": [
+   0.6,
+   0.85
+  ],
+  "correct": "29/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 1,
+   "c5": 5,
+   "c6": 2,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 7.1,
+  "cost_usd": 0
+ },
+ "router + call rules + consultation by LOO (sonnet)": {
+  "n_calls": 5,
+  "accuracy": 0.8,
+  "ci95": [
+   0.75,
+   0.85
+  ],
+  "correct": "32/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 3,
+   "c5": 5,
+   "c6": 3,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 5.9,
+  "cost_usd": 0
+ },
+ "leave-one-call-out router over all variants": {
+  "n_calls": 5,
+  "accuracy": 0.725,
+  "ci95": [
+   0.675,
+   0.75
+  ],
+  "correct": "29/40",
+  "per_criterion": {
+   "c1": 4,
+   "c2": 4,
+   "c3": 5,
+   "c4": 3,
+   "c5": 5,
+   "c6": 0,
+   "c7": 3,
+   "c8": 5
+  },
+  "total_mae": 7.4,
+  "cost_usd": 0
+ }
+}

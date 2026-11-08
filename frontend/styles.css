@@ -205,3 +205,10 @@ nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 60
 html.present { zoom: 1.18; }
 html.present .dialogs { height: calc(100vh / 1.18 - 57px); }
 .ro-banner { background: #fdf1e4; color: #7a4a12; font-size: 13px; padding: 6px 16px; border-bottom: 1px solid #efcfae; }
+.callfacts { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.cf { font-size: 12px; background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; }
+.cf.muted { background: var(--na-bg); color: var(--na); }
+.cf.warn { background: var(--mid-bg); color: var(--mid); }
+details.ivr { border: 1px dashed var(--line); border-radius: var(--radius); padding: 6px 10px; display: flex; flex-direction: column; gap: 6px; }
+details.ivr summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+details.ivr[open] { gap: 8px; }

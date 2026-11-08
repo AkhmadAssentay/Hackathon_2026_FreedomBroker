@@ -99,3 +99,47 @@ def analysis(conv: dict) -> dict | None:
         "longest_silences": [{"seconds": g, "at": at} for g, at in gaps[:3]],
         "timestamp_estimate_error_sec": drift,
     }
+
+
+WAIT_RX = re.compile(r"(минут|подожд|ожида|уточню|проверю|момент|посмотрю|секунд|күте тұрыңыз|тексеремін|wait|one moment|let me check|hold on)", re.I)
+
+
+def whisper_turn_texts(conv: dict) -> dict[int, str]:
+    """Second ASR hypothesis per turn: Whisper words that fall inside the turn's aligned time span."""
+    data = load_words(conv["conversation_id"], conv["audio_url"]) if conv.get("audio_url") else None
+    if not data:
+        return {}
+    words = [w for w in data["words"] if w.get("s") is not None]
+    al = align(conv, words)
+    out = {}
+    for i, a in al.items():
+        txt = " ".join(w["w"] for w in words if a["start"] - 0.2 <= w["s"] <= (a["end"] or a["start"]) + 0.2)
+        if txt:
+            out[i] = txt
+    return out
+
+
+def acoustic_facts(conv: dict, min_gap: float = 8.0) -> dict:
+    """Measured from the recording (AudioJudge: audio LLMs are near chance on paralinguistics, so we give
+    the judge measurements, not an audio model's opinion)."""
+    a = analysis(conv)
+    if not a:
+        return {}
+    data = load_words(conv["conversation_id"], conv["audio_url"])
+    words = [w for w in data["words"] if w.get("s") is not None]
+    al = {int(k): v for k, v in a["aligned"].items()}
+    turns = {t["i"]: t for t in conv["turns"]}
+    silences = []
+    for w0, w1 in zip(words, words[1:]):
+        gap = w1["s"] - (w0.get("e") or w0["s"])
+        if gap < min_gap:
+            continue
+        at = w0.get("e") or w0["s"]
+        before = [i for i, x in al.items() if (x["end"] or x["start"]) <= at + 0.5 and turns[i]["speaker"] == "operator"
+                  and not turns[i].get("internal")]
+        last_op = max(before) if before else None
+        warned = bool(last_op is not None and WAIT_RX.search(turns[last_op]["text"]))
+        silences.append({"seconds": round(gap, 1), "at_sec": round(at, 1), "after_operator_turn": last_op,
+                         "operator_warned": warned})
+    return {"operator_talk_share": a["operator_talk_share"], "speech_rate_wpm": a["speech_rate_wpm"],
+            "long_silences": silences[:6]}

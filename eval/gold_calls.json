@@ -1,0 +1,10 @@
+{
+ "about": "Reference labels for all 5 DEV voice calls (real customers, never published). p4-ru-002/003/005 from labeling B (adjudicated earlier); p4-ru-001/004 labeled by Claude Code (Opus 5.5) from the transcripts against the literal checklist. Small set (40 labels): estimates only.",
+ "labels": {
+  "p4-ru-001": {"c1": "yes", "c2": "na", "c3": "na", "c4": "15", "c5": "yes", "c6": "7", "c7": "na", "c8": "no"},
+  "p4-ru-002": {"c1": "no", "c2": "na", "c3": "yes", "c4": "15", "c5": "yes", "c6": "10", "c7": "no", "c8": "no"},
+  "p4-ru-003": {"c1": "yes", "c2": "yes", "c3": "yes", "c4": "15", "c5": "yes", "c6": "7", "c7": "na", "c8": "no"},
+  "p4-ru-004": {"c1": "yes", "c2": "yes", "c3": "yes", "c4": "20", "c5": "yes", "c6": "4", "c7": "na", "c8": "no"},
+  "p4-ru-005": {"c1": "no", "c2": "yes", "c3": "no", "c4": "15", "c5": "yes", "c6": "4", "c7": "yes", "c8": "no"}
+ }
+}

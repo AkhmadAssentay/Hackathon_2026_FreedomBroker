@@ -176,6 +176,22 @@ def facts(conv: dict) -> dict[str, Any]:
         hit = next((t["i"] for t in sys_t if rx.search(t["text"])), None)
         if hit is not None:
             f[key] = hit
+    if conv.get("channel") == "voice call":
+        joined = next((t["i"] for t in sys_t if re.search(r"присоединился|joined|қосылды", t["text"], re.I)), None)
+        if joined is not None:
+            f["operator_joined_turn"] = joined
+            first_after = next((t["i"] for t in op if t["i"] > joined), None)
+            if first_after is not None:
+                f["first_operator_turn_after_join"] = first_after
+            f["ivr_and_bot_turns_before_join"] = sum(1 for t in turns if t["i"] < joined and t["speaker"] in ("bot", "client"))
+        ended = f.get("ended_by_client_turn")
+        if ended is not None:
+            after = [t["i"] for t in op if t["i"] > ended]
+            if after:
+                f["operator_turns_after_client_hung_up"] = after
+            last_client = next((t for t in reversed(turns[:ended]) if t["speaker"] == "client"), None)
+            if last_client:
+                f["client_last_words_before_hang_up"] = f"t{last_client['i']}: {last_client['text'][:80]}"
     sig = [f"t{t['i']}: {why}" for t in op for rx, why in _GROSS if rx.search(t["text"])]
     if sig:
         f["possible_gross_error_signals"] = sorted(set(sig))

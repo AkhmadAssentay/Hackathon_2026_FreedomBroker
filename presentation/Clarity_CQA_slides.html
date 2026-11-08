@@ -1,0 +1,284 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Clarity — оценка качества диалогов</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Inter:wght@400;600&display=swap"><style>@page { size: 1920px 1080px; margin: 0 } * { margin: 0; box-sizing: border-box } html, body { background: #2b2f2d } section { width: 1920px; height: 1080px; position: relative; overflow: hidden; page-break-after: always; break-after: page; margin: 0 auto 24px } section aside { display: none } h1, h2, h3, p { font-weight: inherit } img { display: block } @media print { html, body { background: none } section { margin: 0 } }</style></head><body><section id="c-cover" data-transition="fade" style="background:#10201a;color:#f3f6f2;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center">
+<svg aria-label="Кольцо: 89,5% совпадения с эталоном" style="position:absolute;left:1180px;top:230px;width:600px;height:600px" width="600" height="600" viewBox="0 0 600 600"><circle cx="300" cy="300" r="240" fill="none" stroke="#1f3a2d" stroke-width="46"/><circle cx="300" cy="300" r="240" fill="none" stroke="#7fd1a4" stroke-width="46" stroke-linecap="round" stroke-dasharray="1350 1508" transform="rotate(-90 300 300)"/></svg>
+<p style="position:absolute;left:1180px;top:440px;width:600px;font-family:'Rubik', Arial, sans-serif;font-size:120px;font-weight:600;text-align:center;color:#f3f6f2">89.5%</p>
+<p style="position:absolute;left:1180px;top:590px;width:600px;font-size:30px;text-align:center;color:#9db5a8">совпадение с эталоном</p>
+<div style="width:960px;display:flex;flex-direction:column;gap:36px">
+<p style="font-size:28px;font-weight:600;color:#7fd1a4;letter-spacing:3px;text-transform:uppercase">Freedom Broker · CQA Hackathon · команда Kaira</p>
+<h1 style="font-family:'Rubik', Arial, sans-serif;font-size:200px;font-weight:600;line-height:1;color:#f3f6f2">Clarity</h1>
+<p style="font-size:48px;line-height:1.25;color:#d6e6dc">ИИ проверяет каждый диалог оператора — и показывает доказательства</p>
+<div style="display:flex;gap:16px">
+<p style="font-size:28px;color:#10201a;background:#7fd1a4;padding:10px 24px;border-radius:40px">RU · KZ · EN</p>
+<p style="font-size:28px;color:#d6e6dc;border:2px solid #3f5c4d;padding:8px 24px;border-radius:40px">чаты и звонки</p>
+<p style="font-size:28px;color:#d6e6dc;border:2px solid #3f5c4d;padding:8px 24px;border-radius:40px">апелляции</p>
+</div>
+</div>
+<aside>Мы — команда Kaira, продукт называется Clarity. Одна фраза: ИИ проверяет каждый диалог оператора по чек-листу и для каждой оценки показывает доказательство. Девяносто процентов ответов совпадают с разметкой эксперта.</aside>
+</section>
+<section id="c-task" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Задача: оценить оператора по 8 критериям</h2>
+<div style="display:flex;align-items:center;gap:56px">
+<div style="width:640px;display:flex;flex-direction:column;gap:16px">
+<p style="align-self:flex-start;max-width:520px;font-size:26px;background:#e6ebe8;padding:14px 22px;border-radius:20px">Почему поменялся тариф?</p>
+<p style="align-self:center;font-size:24px;color:#6a7a70">бот → передал оператору</p>
+<p style="align-self:flex-end;max-width:540px;font-size:26px;background:#d8efe2;padding:14px 22px;border-radius:20px">Здравствуйте, я Тимур. Где вы сравнивали тарифы?</p>
+<p style="align-self:flex-start;max-width:520px;font-size:26px;background:#e6ebe8;padding:14px 22px;border-radius:20px">В старом отчёте и на сайте.</p>
+<p style="align-self:flex-end;max-width:540px;font-size:26px;background:#d8efe2;padding:14px 22px;border-radius:20px">Если вопрос останется — напишите. До свидания!</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:96px;height:48px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#9db5a8"/></svg>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:24px;padding:32px 40px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Установление контакта</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">10</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Выявление потребности</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">15</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Идентификация</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">20</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Консультация</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">0–20</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Эмпатия</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">15</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Ведение диалога</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">0–10</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Завершение</p><p style="font-size:28px;font-weight:600;color:#1f7a4d">5</p></div>
+<div style="display:flex;justify-content:space-between"><p style="font-size:28px">Грубые ошибки</p><p style="font-size:28px;font-weight:600;color:#c43a2f">флаг</p></div>
+</div>
+</div>
+<aside>Задача: по каждому диалогу оператора поставить восемь оценок с весами, правилами N/A и отдельным флагом грубой ошибки. На трёх языках, в чатах и звонках. Человек тратит на это минуты на каждый диалог.</aside>
+</section>
+<section id="c-product" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Каждая оценка — с доказательством</h2>
+<img src="assets/card.png" alt="Карточка диалога: итог 41 из 100, грубая ошибка, советы оператору, цитаты-доказательства, подсвеченная реплика t11" style="position:absolute;left:128px;top:224px;width:980px;height:716px;object-fit:cover;border-radius:16px;border:1px solid #d3dcd6;box-shadow:0 12px 40px rgba(16,32,26,0.18)">
+<p style="position:absolute;left:112px;top:262px;width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">1</p>
+<p style="position:absolute;left:600px;top:404px;width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">2</p>
+<p style="position:absolute;left:345px;top:664px;width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">3</p>
+<p style="position:absolute;left:732px;top:841px;width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">4</p>
+<div style="position:absolute;left:1180px;top:300px;width:612px;display:flex;flex-direction:column;gap:52px">
+<div style="display:flex;gap:24px;align-items:center"><p style="width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">1</p><p style="font-size:34px;line-height:1.25">Итог по правилам чек-листа и флаг грубой ошибки</p></div>
+<div style="display:flex;gap:24px;align-items:center"><p style="width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">2</p><p style="font-size:34px;line-height:1.25">Суть диалога и советы оператору</p></div>
+<div style="display:flex;gap:24px;align-items:center"><p style="width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">3</p><p style="font-size:34px;line-height:1.25">Дословная цитата под каждой оценкой</p></div>
+<div style="display:flex;gap:24px;align-items:center"><p style="width:56px;height:56px;border-radius:50%;background:#eb6834;color:#ffffff;font-size:30px;font-weight:700;text-align:center;line-height:1.85">4</p><p style="font-size:34px;line-height:1.25">Клик — и нужная реплика подсвечена</p></div>
+</div>
+<aside>Вот карточка одного диалога. Первое — итог по правилам чек-листа: здесь 41 балл и красный флаг грубой ошибки, оператор раскрыл данные счёта до проверки личности. Второе — краткая суть и советы оператору. Третье — под каждой оценкой дословная цитата. Четвёртое — клик по цитате подсвечивает реплику в диалоге, у звонков — перематывает запись.</aside>
+</section>
+<section id="c-how" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:72px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Модель указывает — код проверяет и считает</h2>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:20px">
+<div style="width:160px;height:160px;border-radius:50%;background:#e2efe7;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:80px;height:80px;flex:none"><path d="M4 5h16v10H9l-5 4z"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:38px;font-weight:600">Диалог</h3>
+<p style="font-size:26px;color:#5a6b61;text-align:center">RU · KZ · EN, чат или звонок</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#b9c9bf"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:20px">
+<div style="width:160px;height:160px;border-radius:50%;background:#fde8dc;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#c4571f;width:80px;height:80px;flex:none"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:38px;font-weight:600">Модель</h3>
+<p style="font-size:26px;color:#5a6b61;text-align:center">ответ и цитата по каждому критерию</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#b9c9bf"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:20px">
+<div style="width:160px;height:160px;border-radius:50%;background:#e2efe7;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:80px;height:80px;flex:none"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:38px;font-weight:600">Проверка</h3>
+<p style="font-size:26px;color:#5a6b61;text-align:center">цитата дословно есть в реплике</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#b9c9bf"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:20px">
+<div style="width:160px;height:160px;border-radius:50%;background:#e2efe7;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:80px;height:80px;flex:none"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:38px;font-weight:600">Баллы</h3>
+<p style="font-size:26px;color:#5a6b61;text-align:center">веса, N/A, секции — только код</p>
+</div>
+</div>
+<div style="background:#13241c;border-radius:24px;padding:32px 44px;display:flex;align-items:center;gap:28px">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#7fd1a4;width:56px;height:56px;flex:none"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.6.2 4.4 2 5 5"/></svg>
+<p style="font-size:34px;color:#e6efe9">Апелляция → решение проверяющего → итог пересчитан</p>
+</div>
+<aside>Устройство в одну фразу: модель указывает, код проверяет и считает. Модель читает диалог и по каждому критерию возвращает ответ и цитату. Код проверяет, что цитата дословно есть в реплике, и только код считает баллы: веса, N/A, секции. Если оценку оспорили — проверяющий решает, итог пересчитывается.</aside>
+</section>
+<section id="c-results" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Почти как второй эксперт</h2>
+<div style="display:flex;gap:96px;align-items:center">
+<div style="width:640px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:220px;font-weight:600;line-height:1;color:#1f7a4d">89.5%</p>
+<p style="font-size:34px;color:#4a5a51">ответов совпадают с эталонной разметкой</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:28px;color:#4a5a51">Clarity ↔ эталон</p>
+<div style="width:820px;height:56px;background:#e3e9e5;border-radius:12px;display:flex"><div style="width:734px;height:56px;background:#1f7a4d;border-radius:12px"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:28px;color:#4a5a51">эксперт ↔ эксперт (потолок)</p>
+<div style="width:820px;height:56px;background:#e3e9e5;border-radius:12px;display:flex"><div style="width:752px;height:56px;background:#8a9a90;border-radius:12px"></div></div>
+</div>
+<div style="display:flex;gap:24px">
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px"><p style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;color:#c43a2f">7 / 7</p><p style="font-size:26px;color:#4a5a51">грубых ошибок, 0 ложных</p></div>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px"><p style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;color:#16241d">±7</p><p style="font-size:26px;color:#4a5a51">баллов — ошибка итога из 100</p></div>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6a7a70">Эталон: 44 диалога DEV × 8 критериев (RU, KZ, EN, звонки). 95% доверительный интервал: 85–94%. Две независимые разметки совпадают на 91.7%.</p>
+<aside>Главный результат. Мы вручную разметили 44 диалога и сравнили. Clarity совпадает с эталоном в 89,5 процента ответов. Две независимые разметки экспертов между собой совпадают в 91,7 — это потолок, мы почти на нём. Все семь грубых ошибок найдены, ложных тревог нет. Итоговый балл отличается от эталона в среднем на семь баллов из ста.</aside>
+</section>
+<section id="c-methods" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">26 вариантов — выбрали лучший</h2>
+<div style="position:absolute;left:600px;top:282px;width:1000px;height:64px;background:#e3e9e5;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:392px;width:1000px;height:64px;background:#e3e9e5;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:502px;width:1000px;height:64px;background:#e3e9e5;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:612px;width:1000px;height:64px;background:#e3e9e5;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:722px;width:1000px;height:64px;background:#e3e9e5;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:282px;width:733px;height:64px;background:#eb6834;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:392px;width:804px;height:64px;background:#2a78d6;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:502px;width:842px;height:64px;background:#2a78d6;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:612px;width:875px;height:64px;background:#eb6834;border-radius:12px"></div>
+<div style="position:absolute;left:600px;top:722px;width:908px;height:64px;background:#1f7a4d;border-radius:12px"></div>
+<div style="position:absolute;left:1515px;top:256px;width:4px;height:556px;border-left:4px dashed #16241d"></div>
+<p style="position:absolute;left:1340px;top:206px;width:440px;font-size:26px;color:#16241d;text-align:center">потолок: эксперт ↔ эксперт 92%</p>
+<p style="position:absolute;left:128px;top:292px;width:440px;font-size:32px;text-align:right">Claude Haiku</p>
+<p style="position:absolute;left:128px;top:402px;width:440px;font-size:32px;text-align:right">Qwen на нашем GPU</p>
+<p style="position:absolute;left:128px;top:512px;width:440px;font-size:32px;text-align:right">Qwen × 5 голосов</p>
+<p style="position:absolute;left:128px;top:622px;width:440px;font-size:32px;text-align:right">Claude Sonnet</p>
+<p style="position:absolute;left:128px;top:732px;width:440px;font-size:32px;text-align:right;font-weight:600">Маршрутизатор</p>
+<p style="position:absolute;left:600px;top:290px;width:713px;font-size:36px;font-weight:700;color:#ffffff;text-align:right">73%</p>
+<p style="position:absolute;left:600px;top:400px;width:784px;font-size:36px;font-weight:700;color:#ffffff;text-align:right">80%</p>
+<p style="position:absolute;left:600px;top:510px;width:822px;font-size:36px;font-weight:700;color:#ffffff;text-align:right">84%</p>
+<p style="position:absolute;left:600px;top:620px;width:855px;font-size:36px;font-weight:700;color:#ffffff;text-align:right">88%</p>
+<p style="position:absolute;left:600px;top:730px;width:888px;font-size:36px;font-weight:700;color:#ffffff;text-align:right">91%</p>
+<div style="position:absolute;left:600px;top:840px;width:1000px;display:flex;gap:40px">
+<p style="font-size:26px;color:#4a5a51"><span style="color:#eb6834">■</span> Claude API</p>
+<p style="font-size:26px;color:#4a5a51"><span style="color:#2a78d6">■</span> свой GPU</p>
+<p style="font-size:26px;color:#4a5a51"><span style="color:#1f7a4d">■</span> маршрутизатор: Sonnet + Qwen</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6a7a70">Точность на отложенной половине эталона; способ выбирали только на другой половине. Не помогли: подвопросы, критерий на запрос, жюри моделей, прецеденты в промпте.</p>
+<aside>Модель мы не выбирали на глаз. Сравнили 26 вариантов: способ выбирали на одной половине эталона, а точность показываем на другой. Дешёвая Haiku — 73. Открытая Qwen на нашем GPU — 80, а если спросить её пять раз и взять большинство — 84, бесплатно. Claude Sonnet — 88. Маршрутизатор — 91, у самого потолка. Честно скажем и о том, что не сработало: подвопросы, отдельный запрос на критерий, жюри моделей.</aside>
+</section>
+<section id="c-router" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Каждый критерий — своей модели</h2>
+<div style="display:flex;gap:72px;align-items:start">
+<div style="width:1060px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:26px;color:#6a7a70">точность на эталоне</p><p style="width:300px;font-size:26px;font-weight:600;color:#c4571f;text-align:center">Claude Sonnet</p><p style="width:300px;font-size:26px;font-weight:600;color:#2a5fa8;text-align:center">Qwen × 5 (GPU)</p></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Контакт</p><div style="width:300px;height:60px;border-radius:12px;background:#eb6834;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">98%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">96%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Потребность</p><div style="width:300px;height:60px;border-radius:12px;background:#eb6834;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">93%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">73%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Идентификация</p><div style="width:300px;height:60px;border-radius:12px;background:#eb6834;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">100%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">93%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Консультация</p><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">66%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#2a78d6;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">77%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Эмпатия</p><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">86%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#2a78d6;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">96%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Ведение диалога</p><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">61%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#2a78d6;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">75%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Завершение</p><div style="width:300px;height:60px;border-radius:12px;background:#eb6834;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">91%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">75%</p></div></div>
+<div style="display:flex;gap:16px;align-items:center"><p style="width:400px;font-size:30px">Грубые ошибки</p><div style="width:300px;height:60px;border-radius:12px;background:#eb6834;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;font-weight:700;color:#ffffff">100%</p></div><div style="width:300px;height:60px;border-radius:12px;background:#e8ecea;display:flex;align-items:center;justify-content:center"><p style="font-size:32px;color:#7a8a80">98%</p></div></div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:28px;padding:48px 0 0 0">
+<p style="font-size:32px;line-height:1.35;color:#16241d"><b style="color:#c4571f">Sonnet</b> — правила и факты</p>
+<p style="font-size:32px;line-height:1.35;color:#16241d"><b style="color:#2a5fa8">Qwen × 5</b> — шкалы и тон</p>
+<hr style="border-top:2px solid #cfd8d2;width:420px">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:96px;font-weight:600;line-height:1;color:#1f7a4d">4.7</p>
+<p style="font-size:28px;line-height:1.35;color:#4a5a51">ошибка итога вместо 8.9 у одного Sonnet</p>
+</div>
+</div>
+<aside>Почему маршрутизатор лучше. Модели ошибаются по-разному. Claude Sonnet безупречен в правилах — идентификация сто процентов, — но строже людей на шкалах. Наша Qwen с пятью голосами лучше попадает в шкалы и тон. Каждый критерий отдаём модели, которая на нём точнее: ошибка итогового балла падает почти вдвое. Новый критерий автоматически оценивает Sonnet.</aside>
+</section>
+<section id="c-human" data-transition="fade" style="background:#10201a;color:#f3f6f2;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;color:#f3f6f2">Человек смотрит только сомнительное</h2>
+<svg aria-label="Точность автоматических оценок растёт с долей ручной проверки: 0% — 91.2%, 5% — 93.7%, 20% — 95.7%, 30% — 96.4%" style="position:absolute;left:230px;top:250px;width:1100px;height:600px" width="1100" height="600" viewBox="0 0 1100 600"><line x1="80" y1="560" x2="1060" y2="560" stroke="#3a5546" stroke-width="2"/><line x1="80" y1="337" x2="1060" y2="337" stroke="#24392e" stroke-width="2"/><line x1="80" y1="114" x2="1060" y2="114" stroke="#24392e" stroke-width="2"/><path d="M80,471.6 L178,282.9 L276,285.9 L374,238.3 L472,133.6 L668,87.5 L864,62.3 L1060,70.4" fill="none" stroke="#7fd1a4" stroke-width="6" stroke-linejoin="round"/><circle cx="80" cy="471.6" r="10" fill="#7fd1a4"/><circle cx="178" cy="282.9" r="16" fill="#eb6834" stroke="#10201a" stroke-width="4"/><circle cx="276" cy="285.9" r="10" fill="#7fd1a4"/><circle cx="374" cy="238.3" r="10" fill="#7fd1a4"/><circle cx="472" cy="133.6" r="16" fill="#eb6834" stroke="#10201a" stroke-width="4"/><circle cx="668" cy="87.5" r="10" fill="#7fd1a4"/><circle cx="864" cy="62.3" r="10" fill="#7fd1a4"/><circle cx="1060" cy="70.4" r="10" fill="#7fd1a4"/></svg>
+<p style="position:absolute;left:120px;top:792px;width:180px;font-size:26px;color:#9db5a8;text-align:right">90%</p>
+<p style="position:absolute;left:120px;top:569px;width:180px;font-size:26px;color:#9db5a8;text-align:right">93%</p>
+<p style="position:absolute;left:120px;top:346px;width:180px;font-size:26px;color:#9db5a8;text-align:right">96%</p>
+<p style="position:absolute;left:270px;top:828px;width:80px;font-size:26px;color:#9db5a8;text-align:center">0%</p>
+<p style="position:absolute;left:662px;top:828px;width:80px;font-size:26px;color:#9db5a8;text-align:center">20%</p>
+<p style="position:absolute;left:1054px;top:828px;width:80px;font-size:26px;color:#9db5a8;text-align:center">40%</p>
+<p style="position:absolute;left:310px;top:880px;width:980px;font-size:26px;color:#9db5a8;text-align:center">доля оценок, которые смотрит человек →</p>
+<p style="position:absolute;left:440px;top:470px;width:300px;font-size:28px;color:#f3f6f2">5% → 93.7%</p>
+<p style="position:absolute;left:730px;top:322px;width:300px;font-size:28px;color:#f3f6f2">20% → 95.7%</p>
+<div style="position:absolute;left:1400px;top:290px;width:392px;display:flex;flex-direction:column;gap:12px">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:120px;font-weight:600;line-height:1;color:#eb6834">⅓</p>
+<p style="font-size:30px;line-height:1.35;color:#d6e6dc">всех ошибок ловит проверка 5% самых неуверенных оценок</p>
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:120px;font-weight:600;line-height:1;color:#7fd1a4;padding:36px 0 0 0">81%</p>
+<p style="font-size:30px;line-height:1.35;color:#d6e6dc">решений — автоматически, с гарантией точности ≥ 90% (факт: 92.8%)</p>
+</div>
+<aside>Полностью убрать человека нельзя, но можно направить его внимание. Каждая оценка получает уверенность: согласны ли пять голосов модели, прошла ли цитата проверку кодом. Проверяющий смотрит пять процентов самых неуверенных — и находит треть всех ошибок. А порог автоприёма мы выбираем с гарантией: восемьдесят один процент решений принимается автоматически, и их точность не ниже девяноста процентов — на отложенной выборке вышло 92,8.</aside>
+</section>
+<section id="c-errors" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Где ещё ошибаемся — и что делаем</h2>
+<div style="display:flex;gap:72px;align-items:start">
+<div style="width:1000px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Ведение</p><div style="display:flex;gap:3px"><div style="width:480px;height:52px;background:#eda100;border-radius:10px"></div><div style="width:237px;height:52px;background:#d03b3b;border-radius:10px"></div></div><p style="font-size:32px;font-weight:700">12</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Консультация</p><div style="display:flex;gap:3px"><div style="width:420px;height:52px;background:#eda100;border-radius:10px"></div><div style="width:297px;height:52px;background:#d03b3b;border-radius:10px"></div></div><p style="font-size:32px;font-weight:700">12</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Эмпатия</p><div style="width:300px;height:52px;background:#d03b3b;border-radius:10px"></div><p style="font-size:32px;font-weight:700">5</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Завершение</p><div style="width:240px;height:52px;background:#d03b3b;border-radius:10px"></div><p style="font-size:32px;font-weight:700">4</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Потребность</p><div style="width:180px;height:52px;background:#d03b3b;border-radius:10px"></div><p style="font-size:32px;font-weight:700">3</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Контакт</p><div style="width:60px;height:52px;background:#d03b3b;border-radius:10px"></div><p style="font-size:32px;font-weight:700">1</p></div>
+<div style="display:flex;align-items:center;gap:20px"><p style="width:260px;font-size:30px;text-align:right">Идентификация, грубые</p><p style="font-size:30px;font-weight:700;color:#1f7a4d">0 ошибок</p></div>
+<div style="display:flex;gap:36px;padding:12px 0 0 280px"><p style="font-size:26px;color:#4a5a51"><span style="color:#eda100">■</span> промах на одну ступень</p><p style="font-size:26px;color:#4a5a51"><span style="color:#d03b3b">■</span> другие ошибки</p></div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:24px">
+<div style="background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px;display:flex;flex-direction:column;gap:8px"><p style="font-size:30px;font-weight:600">Шкалы: 15 из 24 — соседняя ступень</p><p style="font-size:26px;color:#4a5a51">граница спорная и у людей → калибровка</p></div>
+<div style="background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px;display:flex;flex-direction:column;gap:8px"><p style="font-size:30px;font-weight:600">Звонки: 33% ошибок</p><p style="font-size:26px;color:#4a5a51">шумный текст → Whisper-текст и разметка звонков</p></div>
+<div style="background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px;display:flex;flex-direction:column;gap:8px"><p style="font-size:30px;font-weight:600">44 диалога: p = 0.19</p><p style="font-size:26px;color:#4a5a51">активное обучение: размечать, где модели спорят</p></div>
+</div>
+</div>
+<aside>Честно о том, где система ещё ошибается. Из 352 оценок эталона — 37 расхождений. Две трети — на шкалах консультации и ведения диалога, и большая часть из них — соседняя ступень, 15 против 20: здесь расходились и наши две разметки. Идентификация и грубые ошибки — ноль ошибок. Самый слабый срез — звонки, распознанный текст шумный. И выборка маленькая: превосходство маршрутизатора над Sonnet пока не статистически значимо, поэтому следующий шаг — активное обучение и метки из апелляций.</aside>
+</section>
+<section id="c-calls" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;align-items:center;gap:44px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;align-self:stretch">Звонки: слышим запись, а не только текст</h2>
+<img src="assets/call_waveform.png" alt="Волна записи звонка с отметками реплик оператора, клиента и реплик-доказательств; доля речи 57/43, темп речи, паузы" style="width:1300px;height:504px;object-fit:contain;background:#ffffff;border-radius:20px;border:1px solid #d3dcd6;box-shadow:0 12px 40px rgba(16,32,26,0.14)">
+<div style="display:flex;gap:24px;align-self:stretch">
+<div style="flex:1;background:#ffffff;border:2px solid #1baf7a;border-radius:20px;padding:24px 28px;display:flex;gap:20px;align-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:48px;height:48px;flex:none"><path d="M2 12h4l3-7 4 14 3-7h6"/></svg><p style="font-size:28px">Структура звонка + замеры по записи: <b>72.5% → 76%</b></p></div>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px;display:flex;gap:20px;align-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#c4571f;width:48px;height:48px;flex:none"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><p style="font-size:28px">Вторая расшифровка и коррекция ASR — не помогли</p></div>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:20px;padding:24px 28px;display:flex;gap:20px;align-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#2a5fa8;width:48px;height:48px;flex:none"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><p style="font-size:28px">Whisper слышит скрытые имена → только свой GPU</p></div>
+</div>
+<aside>Звонки — самый трудный срез, и мы разобрали его отдельно по литературе. Помогло знание структуры звонка — кто и когда подключился, кто положил трубку, удержание — и измерения по самой записи: тишина и предупредил ли оператор. Точность на звонках выросла с 72,5 до 76 процентов. Вторая расшифровка Whisper и автокоррекция распознавания, как в HyPoradise, не помогли — честно показываем. И нашли риск: Whisper слышит имена, которые организаторы скрыли, поэтому он работает только на нашем GPU. У звонков мы работаем с самой записью. Whisper на нашем GPU выровнял каждую реплику по словам записи — системные метки времени ошибались на 6–38 секунд, теперь клик по доказательству попадает точно. Видно, кто сколько говорил, темп и паузы. Разговор оператора с коллегой, пока клиент на удержании, распознаётся и не оценивается.</aside>
+</section>
+<section id="c-dash" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:96px 128px;display:flex;flex-direction:column;align-items:center;gap:32px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:56px;font-weight:600;align-self:stretch">Весь набор — на одном экране</h2>
+<img src="assets/dashboard.png" alt="Аналитика набора: 65 диалогов, средний итог 82.6, 8 грубых ошибок, распределение баллов, исходы по критериям, средний итог по языкам и каналам" style="width:1440px;height:738px;object-fit:contain;background:#ffffff;border-radius:20px;border:1px solid #d3dcd6;box-shadow:0 12px 40px rgba(16,32,26,0.14)">
+<aside>Руководителю контроля качества — вся картина набора: сколько оценено, средний балл, где грубые ошибки, какие критерии проваливаются чаще всего. Например, «Завершение» выполняют только двадцать процентов операторов — это готовая тема для обучения. Клик по диалогу открывает его карточку.</aside>
+</section>
+<section id="c-cost" data-transition="fade" style="background:#10201a;color:#f3f6f2;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:80px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;color:#f3f6f2">Дёшево. Быстро. Можно без облака.</h2>
+<div style="display:flex;gap:48px">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:6px solid #7fd1a4;padding:36px 0 0 0">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:132px;font-weight:600;line-height:1;color:#7fd1a4">$0.011</p>
+<p style="font-size:32px;line-height:1.35;color:#d6e6dc">за диалог — все вызовы моделей, по фактическим токенам</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:6px solid #eb6834;padding:36px 0 0 0">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:132px;font-weight:600;line-height:1;color:#eb6834">6 с</p>
+<p style="font-size:32px;line-height:1.35;color:#d6e6dc">чтобы применить новый критерий — заново оценивается только он</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:6px solid #6da7ec;padding:36px 0 0 0">
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:132px;font-weight:600;line-height:1;color:#6da7ec">$0</p>
+<p style="font-size:32px;line-height:1.35;color:#d6e6dc">режим только на своём GPU: данные клиентов не уходят наружу</p>
+</div>
+</div>
+<aside>Экономика. Одна оценка — около одного цента, считаем по фактическим токенам всех вызовов, и в коде стоит жёсткий лимит бюджета. Замена критерия применяется за секунды, потому что заново оценивается только изменённый критерий. А если брокеру нельзя отправлять данные наружу, вся система работает на своём GPU бесплатно.</aside>
+</section>
+<section id="c-next" data-transition="fade" style="background:#10201a;color:#f3f6f2;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:72px">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600;color:#f3f6f2">Дальше: модель учится на решениях проверяющих</h2>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:18px">
+<div style="width:150px;height:150px;border-radius:50%;background:#1f3a2d;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#7fd1a4;width:72px;height:72px;flex:none"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.6.2 4.4 2 5 5"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:36px;font-weight:600;color:#f3f6f2">Апелляция</h3>
+<p style="font-size:26px;color:#9db5a8;text-align:center">решение и причина</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#3f5c4d"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:18px">
+<div style="width:150px;height:150px;border-radius:50%;background:#1f3a2d;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#7fd1a4;width:72px;height:72px;flex:none"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:36px;font-weight:600;color:#f3f6f2">Пары</h3>
+<p style="font-size:26px;color:#9db5a8;text-align:center">ответ модели ↔ ответ проверяющего</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#3f5c4d"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:18px">
+<div style="width:150px;height:150px;border-radius:50%;background:#4a2a1a;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#eb6834;width:72px;height:72px;flex:none"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:36px;font-weight:600;color:#f3f6f2">DPO / RL</h3>
+<p style="font-size:26px;color:#9db5a8;text-align:center">награда: решение + проверка цитат</p>
+</div>
+<svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:72px;height:36px;flex:none"><polygon points="0,15 60,15 60,0 100,25 60,50 60,35 0,35" fill="#3f5c4d"/></svg>
+<div style="width:300px;display:flex;flex-direction:column;align-items:center;gap:18px">
+<div style="width:150px;height:150px;border-radius:50%;background:#1f3a2d;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#7fd1a4;width:72px;height:72px;flex:none"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg></div>
+<h3 style="font-family:'Rubik', Arial, sans-serif;font-size:36px;font-weight:600;color:#f3f6f2">A/B + гарантия</h3>
+<p style="font-size:26px;color:#9db5a8;text-align:center">порог пересчитан на свежих метках</p>
+</div>
+</div>
+<p style="font-size:34px;line-height:1.35;color:#d6e6dc">Награду считает код — модель нельзя «уговорить». Обучаем свою модель на GPU: данные остаются внутри.</p>
+<aside>Почему мы не дообучали модель сейчас: 44 размеченных диалога — слишком мало, наш эксперимент с прецедентами это подтвердил. Но продукт сам собирает данные: каждая апелляция — это пара «ответ модели — ответ проверяющего». Когда пар наберутся сотни, локальная модель дообучается через DPO или RL с наградой, которую считает код: совпадение с решением проверяющего плюс валидность цитат. Перед включением — A/B-проверка и пересчёт порога автоприёма.</aside>
+</section>
+<section id="c-end" data-transition="fade" style="background:#f5f7f4;color:#16241d;font-family:'Inter', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:space-between">
+<h2 style="font-family:'Rubik', Arial, sans-serif;font-size:64px;font-weight:600">Готово к внедрению</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:24px;padding:40px;display:flex;flex-direction:column;gap:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:64px;height:64px;flex:none"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg><p style="font-size:32px;line-height:1.3">Web Components без фреймворка — встраивается в Dynamics 365</p></div>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:24px;padding:40px;display:flex;flex-direction:column;gap:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:64px;height:64px;flex:none"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><p style="font-size:32px;line-height:1.3">Один слой данных — заменяется на Dataverse</p></div>
+<div style="flex:1;background:#ffffff;border:1px solid #dbe3dd;border-radius:24px;padding:40px;display:flex;flex-direction:column;gap:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#1f7a4d;width:64px;height:64px;flex:none"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg><p style="font-size:32px;line-height:1.3">Код, эксперименты и демо — github.com/AkhmadAssentay/cqa-freedom</p></div>
+</div>
+<p style="font-family:'Rubik', Arial, sans-serif;font-size:120px;font-weight:600;line-height:1;color:#1f7a4d">Спасибо!</p>
+<aside>Clarity готов к внедрению: интерфейс — набор компонентов без фреймворка, встраивается в Dynamics 365; все данные идут через один слой, который заменяется на Dataverse. Весь код, эксперименты и демо — в репозитории. Спасибо, готовы к вопросам.</aside>
+</section>
+</body></html>
